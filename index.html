@@ -193,9 +193,6 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        /* ==========================================================
-           SECTION 1: VISITOR TELEMETRY (Saves to 'visits' collection)
-           ========================================================== */
         function getClientInfo() {
             const ua = navigator.userAgent;
             let browser = "Unknown Browser";
@@ -232,10 +229,6 @@
 
         logVisitor();
 
-
-        /* ==========================================================
-           SECTION 2: TRIP LOGGING & ADMIN LOG VIEWER
-           ========================================================== */
         window.logTrip = async function(plate, line) {
             try {
                 const docRef = await addDoc(collection(db, "trips"), {
@@ -264,7 +257,6 @@
 
                 let html = '';
 
-                // --- VISITOR LOGS SECTION ---
                 html += `<h4 style="margin: 0 0 8px 0; color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 4px;">🌐 Visitor Telemetry (${visitsSnapshot.size})</h4>`;
                 if (visitsSnapshot.empty) {
                     html += `<p style="color: #666; font-size: 12px; margin-bottom: 15px;">No visitor logs found.</p>`;
@@ -283,7 +275,6 @@
                     html += `</div>`;
                 }
 
-                // --- TRIP LOGS SECTION ---
                 html += `<h4 style="margin: 0 0 8px 0; color: #198754; border-bottom: 2px solid #198754; padding-bottom: 4px;">🚌 Logged Trips (${tripsSnapshot.size})</h4>`;
                 if (tripsSnapshot.empty) {
                     html += `<p style="color: #666; font-size: 12px;">No logged trips found.</p>`;
@@ -420,4 +411,102 @@
                 return meta.licensePlate.includes(currentFilterQuery);
             } else {
                 const matchesLine = meta.routeNumber === currentFilterQuery;
-                const matchesPlate = meta.licensePlate.includes(currentFilterQuery
+                const matchesPlate = meta.licensePlate.includes(currentFilterQuery);
+                return matchesLine || matchesPlate;
+            }
+        }
+
+        function updateVisibilityForAllMarkers() {
+            for (let id in markers) {
+                const marker = markers[id];
+                if (shouldDisplayMarker(id)) {
+                    if (!map.hasLayer(marker)) marker.addTo(map);
+                } else {
+                    if (map.hasLayer(marker)) map.removeLayer(marker);
+                }
+            }
+        }
+
+        async function fetchVehicles() {
+            try {
+                const response = await fetch('https://busradar26.onrender.com/api/buses');
+                const vehicles = await response.json();
+
+                const currentVehicleIds = new Set();
+
+                vehicles.forEach(v => {
+                    currentVehicleIds.add(v.id);
+
+                    let displayLabel = v.routeNumber || 'N/A';
+                    const lat = v.latitude;
+                    const lon = v.longitude;
+                    const licensePlate = v.licensePlate || 'N/A';
+
+                    if (!lat || !lon) return;
+
+                    markerMeta[v.id] = {
+                        routeNumber: displayLabel.toLowerCase(),
+                        licensePlate: licensePlate.toLowerCase()
+                    };
+
+                    const vType = getNormalizedVehicleType(v);
+                    let colorClass = `badge-${vType}`;
+
+                    if (!displayLabel || displayLabel === 'N/A') {
+                        colorClass = 'badge-na';
+                    }
+
+                    const isStopped = v.currentStatus === 'STOPPED_AT' || v.currentStatus === 0;
+                    const stopClass = isStopped ? 'is-stopped' : '';
+
+                    const vehicleIcon = L.divIcon({
+                        className: '',
+                        html: `<div class="transit-badge ${colorClass} ${stopClass}">${displayLabel}</div>`,
+                        iconSize: [38, 20],
+                        iconAnchor: [19, 10]
+                    });
+
+                    const destination = v.destination || 'In Service';
+                    const popupContent = `
+                        <b>Line:</b> ${displayLabel}<br>
+                        <b>Type:</b> ${vType.toUpperCase().replace('_', ' ')}<br>
+                        <b>Destination:</b> ${destination}<br>
+                        <b>Plate:</b> ${licensePlate}<br><br>
+                        <button onclick="logTrip('${licensePlate}', '${displayLabel}')" style="background-color: #007bff; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: 600; cursor: pointer; width: 100%;">Log trip</button>
+                    `;
+
+                    if (markers[v.id]) {
+                        markers[v.id].setLatLng([lat, lon]);
+                        markers[v.id].setIcon(vehicleIcon);
+                        markers[v.id].bindPopup(popupContent);
+                    } else {
+                        const marker = L.marker([lat, lon], { icon: vehicleIcon });
+                        marker.bindPopup(popupContent);
+                        markers[v.id] = marker;
+                    }
+                });
+
+                for (let id in markers) {
+                    if (!currentVehicleIds.has(id)) {
+                        map.removeLayer(markers[id]);
+                        delete markers[id];
+                        delete markerMeta[id];
+                    }
+                }
+
+                updateVisibilityForAllMarkers();
+
+            } catch (err) {
+                console.error('Error fetching vehicles:', err);
+            }
+        }
+
+        map.on('zoomend', () => {
+            updateVisibilityForAllMarkers();
+        });
+
+        fetchVehicles();
+        setInterval(fetchVehicles, 5000);
+    </script>
+</body>
+</html>
