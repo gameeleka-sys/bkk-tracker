@@ -20,21 +20,39 @@
             height: 100%;
             width: 100%;
         }
-        /* Sleek modern transit pill badge styling overriding leaflet defaults */
+
+        /* Base compact badge icon overriding Leaflet defaults */
         .leaflet-div-icon.transit-badge {
-            background: #1a1a1a !important;
             color: #ffffff !important;
-            border: 2px solid #ffffff !important;
-            padding: 4px 8px !important;
-            font-weight: 700;
+            padding: 3px 6px !important;
+            font-weight: 800;
             font-size: 11px;
-            border-radius: 16px;
+            border-radius: 6px;
             text-align: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
             white-space: nowrap;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
+            min-width: 22px;
+            box-sizing: border-box;
+        }
+
+        /* Dynamic Vehicle Color Classes */
+        .leaflet-div-icon.badge-bus {
+            background-color: #007bff !important; /* Bus: Blue */
+            border: 1.5px solid #0056b3 !important;
+        }
+
+        .leaflet-div-icon.badge-tram {
+            background-color: #ffd700 !important; /* Tram: Yellow */
+            color: #000000 !important; /* Dark text for contrast on yellow */
+            border: 1.5px solid #d4ac0d !important;
+        }
+
+        .leaflet-div-icon.badge-trolley {
+            background-color: #dc3545 !important; /* Trolley: Red */
+            border: 1.5px solid #a71d2a !important;
         }
     </style>
 </head>
@@ -66,7 +84,7 @@
 
                     let displayLabel = v.routeNumber || 'Bus';
                     if (displayLabel === '100E') {
-                        displayLabel = 'AIRPORT';
+                        displayLabel = '100E';
                     }
 
                     const lat = v.latitude;
@@ -74,15 +92,19 @@
 
                     if (!lat || !lon) return;
 
-                    // Clean icon setup using the forced class
+                    // Determine vehicle type class (bus, tram, trolley)
+                    const vType = (v.vehicleType || 'bus').toLowerCase();
+                    const colorClass = `badge-${vType}`;
+
+                    // Create compact badge icon
                     const vehicleIcon = L.divIcon({
-                        className: 'transit-badge',
-                        html: `🚌 ${displayLabel}`,
-                        iconSize: [65, 28],
-                        iconAnchor: [32, 14]
+                        className: `transit-badge ${colorClass}`,
+                        html: `${displayLabel}`,
+                        iconSize: [36, 22],
+                        iconAnchor: [18, 11]
                     });
 
-                    const popupContent = `<b>Line:</b> ${v.routeNumber}<br><b>Model:</b> ${v.vehicleModel || 'Unknown'}<br><b>Plate:</b> ${v.licensePlate || 'N/A'}`;
+                    const popupContent = `<b>Line:</b> ${v.routeNumber}<br><b>Type:</b> ${vType.toUpperCase()}<br><b>Model:</b> ${v.vehicleModel || 'Unknown'}<br><b>Plate:</b> ${v.licensePlate || 'N/A'}`;
 
                     if (markers[v.id]) {
                         markers[v.id].setLatLng([lat, lon]);
