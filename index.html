@@ -102,7 +102,7 @@
             background-color: #f1f3f5;
         }
 
-        /* Admin Logs Modal */
+        /* Modal for Logs */
         #logs-modal {
             display: none;
             position: fixed;
@@ -163,10 +163,10 @@
         <button id="logged-trips-btn">📋 Logged Trips</button>
     </div>
 
-    <!-- Modal for viewing admin logs (Trips & Visits) -->
+    <!-- Modal for viewing logs -->
     <div id="logs-modal">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h3 style="margin: 0; font-size: 16px; color: #111;">System Logs</h3>
+            <h3 id="logs-modal-title" style="margin: 0; font-size: 16px; color: #111;">Logged Trips</h3>
             <button id="close-logs-btn" style="background: none; border: none; font-size: 20px; cursor: pointer; font-weight: bold; color: #666;">&times;</button>
         </div>
         
@@ -193,6 +193,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        // 1. Visitor Telemetry Logging
         function getClientInfo() {
             const ua = navigator.userAgent;
             let browser = "Unknown Browser";
@@ -229,6 +230,7 @@
 
         logVisitor();
 
+        // 2. Trip Logging from Vehicle Popups
         window.logTrip = async function(plate, line) {
             try {
                 const docRef = await addDoc(collection(db, "trips"), {
@@ -243,11 +245,53 @@
             }
         };
 
-        window.loadAllLogs = async function() {
+        // 3. Load ONLY Logged Trips (for the button)
+        window.loadLoggedTrips = async function() {
             const modal = document.getElementById('logs-modal');
+            const titleEl = document.getElementById('logs-modal-title');
             const contentEl = document.getElementById('logs-content');
+            
             modal.style.display = 'block';
-            contentEl.innerHTML = 'Fetching logs from Firestore...';
+            titleEl.textContent = 'Logged Trips';
+            contentEl.innerHTML = 'Fetching trips from Firestore...';
+
+            try {
+                const tripsSnapshot = await getDocs(collection(db, "trips"));
+                
+                if (tripsSnapshot.empty) {
+                    contentEl.innerHTML = '<p style="color: #666; font-size: 12px; text-align: center;">No logged trips found.</p>';
+                    return;
+                }
+
+                let html = '<div style="max-height: 250px; overflow-y: auto;">';
+                tripsSnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const dateStr = data.date ? new Date(data.date).toLocaleString() : 'N/A';
+                    html += `
+                        <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 6px 10px; margin-bottom: 6px; font-size: 12px;">
+                            <div><b>ID:</b> <span style="font-family: monospace; font-size: 10px; color: #555;">${doc.id}</span></div>
+                            <div><b>Line:</b> ${data.line || 'N/A'} | <b>Plate:</b> ${data.licensePlate || 'N/A'}</div>
+                            <div style="font-size: 11px; color: #888; margin-top: 2px;">${dateStr}</div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                contentEl.innerHTML = html;
+            } catch (error) {
+                console.error("Error fetching trips:", error);
+                contentEl.innerHTML = '<p style="color: red; text-align: center;">Failed to load trips.</p>';
+            }
+        };
+
+        // 4. Load BOTH Visits and Trips (Unlocked ONLY by Secret Code)
+        window.loadAdminPanel = async function() {
+            const modal = document.getElementById('logs-modal');
+            const titleEl = document.getElementById('logs-modal-title');
+            const contentEl = document.getElementById('logs-content');
+            
+            modal.style.display = 'block';
+            titleEl.textContent = '🔒 Secure Admin Logs';
+            contentEl.innerHTML = 'Fetching secure system logs...';
 
             try {
                 const [tripsSnapshot, visitsSnapshot] = await Promise.all([
@@ -257,11 +301,12 @@
 
                 let html = '';
 
+                // --- VISITOR LOGS SECTION ---
                 html += `<h4 style="margin: 0 0 8px 0; color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 4px;">🌐 Visitor Telemetry (${visitsSnapshot.size})</h4>`;
                 if (visitsSnapshot.empty) {
                     html += `<p style="color: #666; font-size: 12px; margin-bottom: 15px;">No visitor logs found.</p>`;
                 } else {
-                    html += `<div style="max-height: 180px; overflow-y: auto; margin-bottom: 15px;">`;
+                    html += `<div style="max-height: 150px; overflow-y: auto; margin-bottom: 15px;">`;
                     visitsSnapshot.forEach((doc) => {
                         const data = doc.data();
                         const dateStr = data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A';
@@ -275,11 +320,12 @@
                     html += `</div>`;
                 }
 
+                // --- TRIP LOGS SECTION ---
                 html += `<h4 style="margin: 0 0 8px 0; color: #198754; border-bottom: 2px solid #198754; padding-bottom: 4px;">🚌 Logged Trips (${tripsSnapshot.size})</h4>`;
                 if (tripsSnapshot.empty) {
                     html += `<p style="color: #666; font-size: 12px;">No logged trips found.</p>`;
                 } else {
-                    html += `<div style="max-height: 180px; overflow-y: auto;">`;
+                    html += `<div style="max-height: 150px; overflow-y: auto;">`;
                     tripsSnapshot.forEach((doc) => {
                         const data = doc.data();
                         const dateStr = data.date ? new Date(data.date).toLocaleString() : 'N/A';
@@ -301,8 +347,9 @@
             }
         };
 
+        // Button clicks the normal trip viewer
         document.getElementById('logged-trips-btn').addEventListener('click', () => {
-            window.loadAllLogs();
+            window.loadLoggedTrips();
         });
 
         document.getElementById('close-logs-btn').addEventListener('click', () => {
@@ -349,8 +396,8 @@
                     inputEl.value = '';
                     currentFilterQuery = '';
                     updateVisibilityForAllMarkers();
-                    if (window.loadAllLogs) {
-                        window.loadAllLogs();
+                    if (window.loadAdminPanel) {
+                        window.loadAdminPanel();
                     }
                     return;
                 }
