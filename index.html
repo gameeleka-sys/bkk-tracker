@@ -422,6 +422,14 @@
             updateVisibilityForAllMarkers();
         });
 
+        function formatRouteNumber(routeNum) {
+            if (!routeNum) return 'N/A';
+            const clean = String(routeNum).trim().toUpperCase();
+            if (clean === '0161') return '16A';
+            if (clean === '0085') return '8E';
+            return routeNum;
+        }
+
         function getNormalizedVehicleType(v) {
             const rawType = String(v.vehicleType || '').toLowerCase();
             const routeNum = String(v.routeNumber || '').toUpperCase();
