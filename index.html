@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BusRadar26</title>
+    <title>BKK Live Tracker</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -192,7 +192,52 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Make logTrip globally accessible for Leaflet popup buttons
+        /* ==========================================================
+           SECTION 1: VISITOR TELEMETRY (Saves to 'visits' collection)
+           ========================================================== */
+        function getClientInfo() {
+            const ua = navigator.userAgent;
+            let browser = "Unknown Browser";
+            let os = "Unknown OS";
+
+            if (ua.indexOf("Win") !== -1) os = "Windows";
+            else if (ua.indexOf("Mac") !== -1) os = "macOS";
+            else if (ua.indexOf("iPhone") !== -1 || ua.indexOf("iPad") !== -1) os = "iOS";
+            else if (ua.indexOf("Android") !== -1) os = "Android";
+            else if (ua.indexOf("Linux") !== -1) os = "Linux";
+
+            if (ua.indexOf("Edg") !== -1) browser = "Microsoft Edge";
+            else if (ua.indexOf("Chrome") !== -1 && ua.indexOf("Edg") === -1) browser = "Google Chrome";
+            else if (ua.indexOf("Safari") !== -1 && ua.indexOf("Chrome") === -1) browser = "Apple Safari";
+            else if (ua.indexOf("Firefox") !== -1) browser = "Mozilla Firefox";
+            else if (ua.indexOf("Opera") !== -1 || ua.indexOf("OPR") !== -1) browser = "Opera";
+
+            return { os, browser };
+        }
+
+        async function logVisitor() {
+            try {
+                const { os, browser } = getClientInfo();
+                await addDoc(collection(db, "visits"), {
+                    os: os,
+                    browser: browser,
+                    timestamp: new Date().toISOString()
+                });
+                console.log("Visitor telemetry logged.");
+            } catch (error) {
+                console.error("Visitor logging error:", error);
+            }
+        }
+
+        // Run visitor logging automatically on page load
+        logVisitor();
+
+
+        /* ==========================================================
+           SECTION 2: TRIP LOGGING & VIEWING (Saves to 'trips' collection)
+           ========================================================== */
+
+        // Global function attached to popup buttons to save a trip
         window.logTrip = async function(plate, line) {
             try {
                 const docRef = await addDoc(collection(db, "trips"), {
@@ -202,12 +247,12 @@
                 });
                 alert(`Trip logged successfully!\n\nDocument ID: ${docRef.id}\nLine: ${line}\nPlate: ${plate}`);
             } catch (error) {
-                console.error("Error writing document: ", error);
+                console.error("Trip logging error:", error);
                 alert("Failed to log trip. Check console for details.");
             }
         };
 
-        // Fetch and display all logged trips in the modal
+        // Global function to load and display saved trips in the modal
         window.loadLoggedTrips = async function() {
             const modal = document.getElementById('logs-modal');
             const listEl = document.getElementById('logs-list');
@@ -237,12 +282,12 @@
                 });
                 listEl.innerHTML = html;
             } catch (error) {
-                console.error("Error fetching logs:", error);
+                console.error("Error fetching trips:", error);
                 listEl.innerHTML = '<p style="color: red; text-align: center;">Failed to load logged trips.</p>';
             }
         };
 
-        // Event listeners for modal buttons
+        // UI Event Listeners for the modal
         document.getElementById('logged-trips-btn').addEventListener('click', () => {
             window.loadLoggedTrips();
         });
@@ -299,131 +344,4 @@
 
         function getNormalizedVehicleType(v) {
             const rawType = String(v.vehicleType || '').toLowerCase();
-            const routeNum = String(v.routeNumber || '').toUpperCase();
-
-            if (/^H[5-9]$/.test(routeNum) || routeNum.includes('HÉV') || routeNum.includes('HEV')) {
-                return 'suburban_rail';
-            }
-            if (rawType === 'tram') return 'tram';
-            if (rawType === 'trolley') return 'trolley';
-            if (rawType === 'train') return 'train';
-            if (rawType === 'suburban_rail') return 'suburban_rail';
-            return 'bus';
-        }
-
-        function shouldDisplayMarker(id) {
-            const currentZoom = map.getZoom();
-            
-            const effectiveThreshold = currentFilterQuery ? FILTER_HIDE_ZOOM : NORMAL_HIDE_ZOOM;
-            if (currentZoom < effectiveThreshold) return false;
-
-            if (!currentFilterQuery) return true;
-
-            const meta = markerMeta[id];
-            if (!meta) return false;
-
-            if (filterMode === 1) {
-                return meta.routeNumber === currentFilterQuery;
-            } else if (filterMode === 2) {
-                return meta.licensePlate.includes(currentFilterQuery);
-            } else {
-                const matchesLine = meta.routeNumber === currentFilterQuery;
-                const matchesPlate = meta.licensePlate.includes(currentFilterQuery);
-                return matchesLine || matchesPlate;
-            }
-        }
-
-        function updateVisibilityForAllMarkers() {
-            for (let id in markers) {
-                const marker = markers[id];
-                if (shouldDisplayMarker(id)) {
-                    if (!map.hasLayer(marker)) marker.addTo(map);
-                } else {
-                    if (map.hasLayer(marker)) map.removeLayer(marker);
-                }
-            }
-        }
-
-        async function fetchVehicles() {
-            try {
-                const response = await fetch('https://busradar26.onrender.com/api/buses');
-                const vehicles = await response.json();
-
-                const currentVehicleIds = new Set();
-
-                vehicles.forEach(v => {
-                    currentVehicleIds.add(v.id);
-
-                    let displayLabel = v.routeNumber || 'N/A';
-                    const lat = v.latitude;
-                    const lon = v.longitude;
-                    const licensePlate = v.licensePlate || 'N/A';
-
-                    if (!lat || !lon) return;
-
-                    markerMeta[v.id] = {
-                        routeNumber: displayLabel.toLowerCase(),
-                        licensePlate: licensePlate.toLowerCase()
-                    };
-
-                    const vType = getNormalizedVehicleType(v);
-                    let colorClass = `badge-${vType}`;
-
-                    if (!displayLabel || displayLabel === 'N/A') {
-                        colorClass = 'badge-na';
-                    }
-
-                    const isStopped = v.currentStatus === 'STOPPED_AT' || v.currentStatus === 0;
-                    const stopClass = isStopped ? 'is-stopped' : '';
-
-                    const vehicleIcon = L.divIcon({
-                        className: '',
-                        html: `<div class="transit-badge ${colorClass} ${stopClass}">${displayLabel}</div>`,
-                        iconSize: [38, 20],
-                        iconAnchor: [19, 10]
-                    });
-
-                    const destination = v.destination || 'In Service';
-                    const popupContent = `
-                        <b>Line:</b> ${displayLabel}<br>
-                        <b>Type:</b> ${vType.toUpperCase().replace('_', ' ')}<br>
-                        <b>Destination:</b> ${destination}<br>
-                        <b>Plate:</b> ${licensePlate}<br><br>
-                        <button onclick="logTrip('${licensePlate}', '${displayLabel}')" style="background-color: #007bff; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: 600; cursor: pointer; width: 100%;">Log trip</button>
-                    `;
-
-                    if (markers[v.id]) {
-                        markers[v.id].setLatLng([lat, lon]);
-                        markers[v.id].setIcon(vehicleIcon);
-                        markers[v.id].bindPopup(popupContent);
-                    } else {
-                        const marker = L.marker([lat, lon], { icon: vehicleIcon });
-                        marker.bindPopup(popupContent);
-                        markers[v.id] = marker;
-                    }
-                });
-
-                for (let id in markers) {
-                    if (!currentVehicleIds.has(id)) {
-                        map.removeLayer(markers[id]);
-                        delete markers[id];
-                        delete markerMeta[id];
-                    }
-                }
-
-                updateVisibilityForAllMarkers();
-
-            } catch (err) {
-                console.error('Error fetching vehicles:', err);
-            }
-        }
-
-        map.on('zoomend', () => {
-            updateVisibilityForAllMarkers();
-        });
-
-        fetchVehicles();
-        setInterval(fetchVehicles, 5000);
-    </script>
-</body>
-</html>
+            const routeNum = String(v.
