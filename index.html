@@ -131,7 +131,8 @@
 
         const markers = {};
         const markerMeta = {};
-        const HIDE_ZOOM_THRESHOLD = 13;
+        const NORMAL_HIDE_ZOOM = 13;
+        const FILTER_HIDE_ZOOM = 11;
         let currentFilterQuery = '';
 
         document.getElementById('filter-input').addEventListener('input', (e) => {
@@ -169,16 +170,17 @@
         function shouldDisplayMarker(id) {
             const currentZoom = map.getZoom();
             
-            // Relax zoom threshold to 11 if a filter is active, otherwise keep it at 13
-            const effectiveThreshold = currentFilterQuery ? 11 : HIDE_ZOOM_THRESHOLD;
+            const effectiveThreshold = currentFilterQuery ? FILTER_HIDE_ZOOM : NORMAL_HIDE_ZOOM;
             if (currentZoom < effectiveThreshold) return false;
 
-            if (!currentFilterQuery) return true; // No filter active
+            if (!currentFilterQuery) return true;
 
             const meta = markerMeta[id];
             if (!meta) return false;
 
-            const matchesLine = meta.routeNumber.includes(currentFilterQuery);
+            // Strict exact match for route numbers so '11' doesn't match '111' or '112'
+            const matchesLine = meta.routeNumber === currentFilterQuery;
+            // Flexible partial match for license plates
             const matchesPlate = meta.licensePlate.includes(currentFilterQuery);
 
             return matchesLine || matchesPlate;
