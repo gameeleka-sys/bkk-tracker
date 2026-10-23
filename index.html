@@ -20,19 +20,21 @@
             height: 100%;
             width: 100%;
         }
-        /* Sleek modern transit pill badge styling */
-        .transit-badge {
-            background: #1a1a1a;
-            color: #ffffff;
-            border: 2px solid #ffffff;
-            padding: 5px 10px;
+        /* Sleek modern transit pill badge styling overriding leaflet defaults */
+        .leaflet-div-icon.transit-badge {
+            background: #1a1a1a !important;
+            color: #ffffff !important;
+            border: 2px solid #ffffff !important;
+            padding: 4px 8px !important;
             font-weight: 700;
             font-size: 11px;
             border-radius: 16px;
             text-align: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
             white-space: nowrap;
-            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
     </style>
 </head>
@@ -72,12 +74,12 @@
 
                     if (!lat || !lon) return;
 
-                    // Use the sleek new transit badge style
+                    // Clean icon setup using the forced class
                     const vehicleIcon = L.divIcon({
-                        className: '', // clears default leaflet background wrapper
-                        html: `<div class="transit-badge">🚌 ${displayLabel}</div>`,
-                        iconSize: [60, 28],
-                        iconAnchor: [30, 14]
+                        className: 'transit-badge',
+                        html: `🚌 ${displayLabel}`,
+                        iconSize: [65, 28],
+                        iconAnchor: [32, 14]
                     });
 
                     const popupContent = `<b>Line:</b> ${v.routeNumber}<br><b>Model:</b> ${v.vehicleModel || 'Unknown'}<br><b>Plate:</b> ${v.licensePlate || 'N/A'}`;
