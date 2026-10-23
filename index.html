@@ -149,38 +149,40 @@
     <div id="map"></div>
 
     <!-- Firebase Client Module -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
-        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+    import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyCYZ_dF-pSt-N1vzY0cCl9_-U6pdP9vMJo",
-            authDomain: "budapestradar26.firebaseapp.com",
-            projectId: "budapestradar26",
-            storageBucket: "budapestradar26.firebasestorage.app",
-            messagingSenderId: "258977567627",
-            appId: "1:258977567627:web:aa600e0d1aad576e85158e",
-            measurementId: "G-XRM4409JGL"
-        };
+    const firebaseConfig = {
+        apiKey: "AIzaSyCYZ_dF-pSt-N1vzY0cCl9_-U6pdP9vMJo",
+        authDomain: "budapestradar26.firebaseapp.com",
+        projectId: "budapestradar26",
+        storageBucket: "budapestradar26.firebasestorage.app",
+        messagingSenderId: "258977567627",
+        appId: "1:258977567627:web:aa600e0d1aad576e85158e",
+        measurementId: "G-XRM4409JGL"
+    };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-        // Make logTrip globally accessible for Leaflet popup buttons
-        window.logTrip = async function(plate, line) {
-            try {
-                await addDoc(collection(db, "trips"), {
-                    licensePlate: plate || 'N/A',
-                    line: line || 'N/A',
-                    date: new Date().toISOString()
-                });
-                alert(`Trip logged successfully!\nLine: ${line}\nPlate: ${plate}`);
-            } catch (error) {
-                console.error("Error writing document: ", error);
-                alert("Failed to log trip. Check console for details.");
-            }
-        };
-    </script>
+    // Make logTrip globally accessible for Leaflet popup buttons
+    window.logTrip = async function(plate, line) {
+        try {
+            // addDoc returns a reference containing the auto-generated ID
+            const docRef = await addDoc(collection(db, "trips"), {
+                licensePlate: plate || 'N/A',
+                line: line || 'N/A',
+                date: new Date().toISOString()
+            });
+
+            alert(`Trip logged successfully!\n\nDocument ID: ${docRef.id}\nLine: ${line}\nPlate: ${plate}`);
+        } catch (error) {
+            console.error("Error writing document: ", error);
+            alert("Failed to log trip. Check console for details.");
+        }
+    };
+</script>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
