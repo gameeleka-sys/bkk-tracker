@@ -6,8 +6,11 @@ const fs = require('fs');
 const csv = require('csv-parser');
 
 const app = express();
-const PORT = 3333;
+const PORT = process.env.PORT || 3333;
 const BKK_API_KEY = '204dc94e-0379-4403-af32-888232066de5'; // Replace if needed
+
+// Enable CORS for all origins (fixes your frontend CORS block)
+app.use(cors());
 
 const routeDetailsMap = new Map();
 
@@ -135,5 +138,5 @@ app.get('/api/buses', async (req, res) => {
 });
 
 loadStaticRoutes().then(() => {
-  app.listen(PORT, () => console.log(`Server active: http://localhost:${PORT}`));
+  app.listen(PORT, () => console.log(`Server active on port ${PORT}`));
 });

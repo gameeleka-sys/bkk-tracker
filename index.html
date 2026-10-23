@@ -20,15 +20,17 @@
             height: 100%;
             width: 100%;
         }
-        /* Black box styling for unnumbered / transit vehicles */
         .transit-black-box {
             background: #000;
             color: #fff;
-            padding: 2px 6px;
+            padding: 3px 6px;
             font-weight: bold;
             font-size: 11px;
-            border-radius: 3px;
+            border-radius: 4px;
             text-align: center;
+            border: 1px solid #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            white-space: nowrap;
         }
     </style>
 </head>
@@ -39,7 +41,6 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Initialize map centered on Budapest
         const map = L.map('map').setView([47.4979, 19.0402], 13);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -51,7 +52,6 @@
 
         async function fetchVehicles() {
             try {
-                // REPLACE WITH YOUR ACTUAL RENDER URL BELOW
                 const response = await fetch('https://busradar26.onrender.com/api/buses');
                 const vehicles = await response.json();
 
@@ -60,20 +60,33 @@
                 vehicles.forEach(v => {
                     currentVehicleIds.add(v.id);
 
-                    let displayLabel = v.label;
+                    // Matching backend keys: routeNumber, latitude, longitude, vehicleModel, licensePlate
+                    let displayLabel = v.routeNumber || 'Bus';
                     if (displayLabel === '100E') {
-                        displayLabel = 'AIRPORT EXPRESS';
+                        displayLabel = 'AIRPORT';
                     }
 
-                    const lat = v.lat;
-                    const lon = v.lon;
+                    const lat = v.latitude;
+                    const lon = v.longitude;
+
+                    if (!lat || !lon) return;
+
+                    const vehicleIcon = L.divIcon({
+                        className: 'transit-black-box',
+                        html: displayLabel,
+                        iconSize: [45, 24],
+                        iconAnchor: [22, 12]
+                    });
+
+                    const popupContent = `<b>Line:</b> ${v.routeNumber}<br><b>Model:</b> ${v.vehicleModel || 'Unknown'}<br><b>Plate:</b> ${v.licensePlate || 'N/A'}`;
 
                     if (markers[v.id]) {
                         markers[v.id].setLatLng([lat, lon]);
-                        markers[v.id].bindPopup(`<b>Line:</b> ${displayLabel}<br><b>Model:</b> ${v.model}<br><b>Plate:</b> ${v.licensePlate || 'N/A'}`);
+                        markers[v.id].setIcon(vehicleIcon);
+                        markers[v.id].bindPopup(popupContent);
                     } else {
-                        const marker = L.marker([lat, lon]).addTo(map);
-                        marker.bindPopup(`<b>Line:</b> ${displayLabel}<br><b>Model:</b> ${v.model}<br><b>Plate:</b> ${v.licensePlate || 'N/A'}`);
+                        const marker = L.marker([lat, lon], { icon: vehicleIcon }).addTo(map);
+                        marker.bindPopup(popupContent);
                         markers[v.id] = marker;
                     }
                 });
@@ -90,7 +103,6 @@
             }
         }
 
-        // Fetch immediately and then every 5 seconds
         fetchVehicles();
         setInterval(fetchVehicles, 5000);
     </script>

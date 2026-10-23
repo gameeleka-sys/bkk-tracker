@@ -1,13 +1,13 @@
 {
   "name": "bkk-tracker",
   "version": "1.0.0",
-  "description": "BKK transit tracker and trip logger",
+  "description": "BKK Bus Tracker",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "cors": "^2.8.6",
+    "cors": "^2.8.5",
     "csv-parser": "^3.0.0",
     "express": "^4.19.2",
     "gtfs-realtime-bindings": "^1.1.0"
