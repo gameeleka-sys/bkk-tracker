@@ -21,38 +21,38 @@
             width: 100%;
         }
 
-        /* Base compact badge icon overriding Leaflet defaults */
-        .leaflet-div-icon.transit-badge {
-            color: #ffffff !important;
-            padding: 3px 6px !important;
+        /* Standalone badge box styling */
+        .transit-badge {
+            padding: 4px 7px;
             font-weight: 800;
             font-size: 11px;
             border-radius: 6px;
             text-align: center;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
             white-space: nowrap;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 22px;
             box-sizing: border-box;
         }
 
-        /* Dynamic Vehicle Color Classes */
-        .leaflet-div-icon.badge-bus {
-            background-color: #007bff !important; /* Bus: Blue */
-            border: 1.5px solid #0056b3 !important;
+        /* Vehicle-specific colors */
+        .badge-bus {
+            background-color: #007bff;
+            color: #ffffff;
+            border: 1.5px solid #0056b3;
         }
 
-        .leaflet-div-icon.badge-tram {
-            background-color: #ffd700 !important; /* Tram: Yellow */
-            color: #000000 !important; /* Dark text for contrast on yellow */
-            border: 1.5px solid #d4ac0d !important;
+        .badge-tram {
+            background-color: #ffd700;
+            color: #000000;
+            border: 1.5px solid #d4ac0d;
         }
 
-        .leaflet-div-icon.badge-trolley {
-            background-color: #dc3545 !important; /* Trolley: Red */
-            border: 1.5px solid #a71d2a !important;
+        .badge-trolley {
+            background-color: #dc3545;
+            color: #ffffff;
+            border: 1.5px solid #a71d2a;
         }
     </style>
 </head>
@@ -92,16 +92,14 @@
 
                     if (!lat || !lon) return;
 
-                    // Determine vehicle type class (bus, tram, trolley)
                     const vType = (v.vehicleType || 'bus').toLowerCase();
-                    const colorClass = `badge-${vType}`;
 
-                    // Create compact badge icon
+                    // Clear className so Leaflet doesn't add unwanted wrappers, render box via HTML
                     const vehicleIcon = L.divIcon({
-                        className: `transit-badge ${colorClass}`,
-                        html: `${displayLabel}`,
-                        iconSize: [36, 22],
-                        iconAnchor: [18, 11]
+                        className: '',
+                        html: `<div class="transit-badge badge-${vType}">${displayLabel}</div>`,
+                        iconSize: [40, 24],
+                        iconAnchor: [20, 12]
                     });
 
                     const popupContent = `<b>Line:</b> ${v.routeNumber}<br><b>Type:</b> ${vType.toUpperCase()}<br><b>Model:</b> ${v.vehicleModel || 'Unknown'}<br><b>Plate:</b> ${v.licensePlate || 'N/A'}`;
