@@ -102,7 +102,7 @@
             background-color: #f1f3f5;
         }
 
-        /* Logged Trips Modal */
+        /* Admin Logs Modal */
         #logs-modal {
             display: none;
             position: fixed;
@@ -114,8 +114,8 @@
             padding: 20px;
             border-radius: 12px;
             box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3);
-            width: 360px;
-            max-height: 80vh;
+            width: 400px;
+            max-height: 85vh;
             overflow-y: auto;
             box-sizing: border-box;
         }
@@ -163,13 +163,14 @@
         <button id="logged-trips-btn">📋 Logged Trips</button>
     </div>
 
-    <!-- Modal for viewing logged trips -->
+    <!-- Modal for viewing admin logs (Trips & Visits) -->
     <div id="logs-modal">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <h3 style="margin: 0; font-size: 16px; color: #111;">Logged Trips</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0; font-size: 16px; color: #111;">System Logs</h3>
             <button id="close-logs-btn" style="background: none; border: none; font-size: 20px; cursor: pointer; font-weight: bold; color: #666;">&times;</button>
         </div>
-        <div id="logs-list" style="font-size: 13px; color: #333;">Loading...</div>
+        
+        <div id="logs-content" style="font-size: 13px; color: #333;">Loading...</div>
     </div>
 
     <div id="map"></div>
@@ -234,7 +235,7 @@
 
 
         /* ==========================================================
-           SECTION 2: TRIP LOGGING & VIEWING (Saves to 'trips' collection)
+           SECTION 2: TRIP LOGGING & ADMIN LOG VIEWER
            ========================================================== */
 
         // Global function attached to popup buttons to save a trip
@@ -252,44 +253,70 @@
             }
         };
 
-        // Global function to load and display saved trips in the modal
-        window.loadLoggedTrips = async function() {
+        // Global function to load and display BOTH trips and visits in the modal
+        window.loadAllLogs = async function() {
             const modal = document.getElementById('logs-modal');
-            const listEl = document.getElementById('logs-list');
+            const contentEl = document.getElementById('logs-content');
             modal.style.display = 'block';
-            listEl.innerHTML = 'Loading trips...';
+            contentEl.innerHTML = 'Fetching logs from Firestore...';
 
             try {
-                const querySnapshot = await getDocs(collection(db, "trips"));
-                
-                if (querySnapshot.empty) {
-                    listEl.innerHTML = '<p style="color: #666; text-align: center; padding: 20px 0;">No logged trips found yet.</p>';
-                    return;
-                }
+                const [tripsSnapshot, visitsSnapshot] = await Promise.all([
+                    getDocs(collection(db, "trips")),
+                    getDocs(collection(db, "visits"))
+                ]);
 
                 let html = '';
-                querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    const dateStr = data.date ? new Date(data.date).toLocaleString() : 'N/A';
-                    html += `
-                        <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 8px 12px; margin-bottom: 8px;">
-                            <div><b>ID:</b> <span style="font-family: monospace; font-size: 11px; color: #555;">${doc.id}</span></div>
-                            <div><b>Line:</b> ${data.line || 'N/A'}</div>
-                            <div><b>Plate:</b> ${data.licensePlate || 'N/A'}</div>
-                            <div style="font-size: 11px; color: #888; margin-top: 2px;">${dateStr}</div>
-                        </div>
-                    `;
-                });
-                listEl.innerHTML = html;
+
+                // --- VISITOR LOGS SECTION ---
+                html += `<h4 style="margin: 0 0 8px 0; color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 4px;">🌐 Visitor Telemetry (${visitsSnapshot.size})</h4>`;
+                if (visitsSnapshot.empty) {
+                    html += `<p style="color: #666; font-size: 12px; margin-bottom: 15px;">No visitor logs found.</p>`;
+                } else {
+                    html += `<div style="max-height: 180px; overflow-y: auto; margin-bottom: 15px;">`;
+                    visitsSnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        const dateStr = data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A';
+                        html += `
+                            <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 6px 10px; margin-bottom: 6px; font-size: 12px;">
+                                <div><b>OS:</b> ${data.os || 'Unknown'} | <b>Browser:</b> ${data.browser || 'Unknown'}</div>
+                                <div style="font-size: 11px; color: #888; margin-top: 2px;">${dateStr}</div>
+                            </div>
+                        `;
+                    });
+                    html += `</div>`;
+                }
+
+                // --- TRIP LOGS SECTION ---
+                html += `<h4 style="margin: 0 0 8px 0; color: #198754; border-bottom: 2px solid #198754; padding-bottom: 4px;">🚌 Logged Trips (${tripsSnapshot.size})</h4>`;
+                if (tripsSnapshot.empty) {
+                    html += `<p style="color: #666; font-size: 12px;">No logged trips found.</p>`;
+                } else {
+                    html += `<div style="max-height: 180px; overflow-y: auto;">`;
+                    tripsSnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        const dateStr = data.date ? new Date(data.date).toLocaleString() : 'N/A';
+                        html += `
+                            <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 6px 10px; margin-bottom: 6px; font-size: 12px;">
+                                <div><b>ID:</b> <span style="font-family: monospace; font-size: 10px; color: #555;">${doc.id}</span></div>
+                                <div><b>Line:</b> ${data.line || 'N/A'} | <b>Plate:</b> ${data.licensePlate || 'N/A'}</div>
+                                <div style="font-size: 11px; color: #888; margin-top: 2px;">${dateStr}</div>
+                            </div>
+                        `;
+                    });
+                    html += `</div>`;
+                }
+
+                contentEl.innerHTML = html;
             } catch (error) {
-                console.error("Error fetching trips:", error);
-                listEl.innerHTML = '<p style="color: red; text-align: center;">Failed to load logged trips.</p>';
+                console.error("Error fetching admin logs:", error);
+                contentEl.innerHTML = '<p style="color: red; text-align: center;">Failed to load system logs.</p>';
             }
         };
 
         // UI Event Listeners for the modal
         document.getElementById('logged-trips-btn').addEventListener('click', () => {
-            window.loadLoggedTrips();
+            window.loadAllLogs();
         });
 
         document.getElementById('close-logs-btn').addEventListener('click', () => {
@@ -314,11 +341,38 @@
         let currentFilterQuery = '';
         let filterMode = 0; // 0: All, 1: Line Only, 2: Plate Only
 
+        // Pre-computed SHA-256 hash for the secret code "logs"
+        const SECRET_HASH = "f10e2821bbbea527ea02200352313bc0594451908174577cfb915384ea84d9f2";
+
+        // Helper function to hash any string using SHA-256 in the browser
+        async function sha256(message) {
+            const msgBuffer = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
         const inputEl = document.getElementById('filter-input');
         const modeBtn = document.getElementById('mode-btn');
 
-        inputEl.addEventListener('input', (e) => {
-            currentFilterQuery = e.target.value.trim().toLowerCase();
+        inputEl.addEventListener('input', async (e) => {
+            const rawValue = e.target.value.trim().toLowerCase();
+            currentFilterQuery = rawValue;
+
+            // Hash the typed input and compare it against the stored SHA-256 hash
+            if (rawValue.length > 0) {
+                const typedHash = await sha256(rawValue);
+                if (typedHash === SECRET_HASH) {
+                    inputEl.value = ''; // clear the input so map returns to normal view
+                    currentFilterQuery = '';
+                    updateVisibilityForAllMarkers();
+                    if (window.loadAllLogs) {
+                        window.loadAllLogs();
+                    }
+                    return;
+                }
+            }
+
             updateVisibilityForAllMarkers();
         });
 
