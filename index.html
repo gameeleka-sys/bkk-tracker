@@ -60,7 +60,6 @@
             border: 1.5px solid #001A3D;
         }
 
-        /* Suburban Rail / HÉV: Green */
         .badge-suburban_rail {
             background-color: #198754;
             color: #ffffff;
@@ -99,19 +98,17 @@
         }).addTo(map);
 
         const markers = {};
-        const HIDE_ZOOM_THRESHOLD = 13;
+        const HIDE_ZOOM_THRESHOLD = 14;
 
         function getNormalizedVehicleType(v) {
             const rawType = String(v.vehicleType || v.routeType || '').toLowerCase();
             const routeNum = String(v.routeNumber || v.routeId || '').toUpperCase();
 
-            // 1. Check for HÉV route numbers (H5, H6, H7, H8, H9)
             if (/^H[5-9]$/.test(routeNum) || routeNum.includes('HÉV') || routeNum.includes('HEV')) {
                 return 'suburban_rail';
             }
 
-            // 2. Check for numeric GTFS route types or explicit strings
-            if (rawType === '109' || rawType === 'suburban_rail' || rawType === 'hev' || rawType === 'suburbanrail') {
+            if (rawType === '109' || rawType === 'suburban_rail' || rawType === 'hev') {
                 return 'suburban_rail';
             }
             if (rawType === '2' || rawType === 'rail' || rawType === 'train') {
@@ -142,27 +139,23 @@
                 vehicles.forEach(v => {
                     currentVehicleIds.add(v.id);
 
-                    const displayLabel = v.routeNumber || 'N/A';
+                    let displayLabel = v.routeNumber || 'N/A';
                     const lat = v.latitude;
                     const lon = v.longitude;
 
                     if (!lat || !lon) return;
 
                     const vType = getNormalizedVehicleType(v);
-
                     let colorClass = `badge-${vType}`;
-                    // 1. Handle N/A
-if (!displayLabel || displayLabel === 'N/A') {
-    colorClass = 'badge-na';
-} 
-// 2. Fix 0161 to 16A
-else if (displayLabel.includes('0161')) {
-    displayLabel = '16A';
-} 
-// 3. Match Train Line Prefixes (IC, Ex, Sz, S10, S12, S30, S40, S42, Z30, etc.)
-else if (/^(IC|Ex|Sz|S\d*|Z\d*)$/i.test(displayLabel) || displayLabel.includes('IC') || displayLabel.includes('Ex')) {
-    colorClass = 'badge-train';
-}
+
+                    if (!displayLabel || displayLabel === 'N/A') {
+                        colorClass = 'badge-na';
+                    } else if (displayLabel.includes('0161')) {
+                        displayLabel = '16A';
+                    } else if (/^(IC|Ex|Sz|S\d+|Z\d+)$/i.test(displayLabel) || displayLabel.startsWith('S') || displayLabel.startsWith('Z')) {
+                        colorClass = 'badge-train';
+                    }
+
                     const isStopped = v.currentStatus === 'STOPPED_AT' || v.currentStatus === 0;
                     const stopClass = isStopped ? 'is-stopped' : '';
 
@@ -173,7 +166,9 @@ else if (/^(IC|Ex|Sz|S\d*|Z\d*)$/i.test(displayLabel) || displayLabel.includes('
                         iconAnchor: [19, 10]
                     });
 
-                    const popupContent = `<b>Line:</b> ${displayLabel}<br><b>Type:</b> ${vType.toUpperCase().replace('_', ' ')}<br><b>Status:</b> ${isStopped ? 'Stopped at station' : 'In transit'}<br><b>Model:</b> ${v.vehicleModel || 'Unknown'}<br><b>Plate:</b> ${v.licensePlate || 'N/A'}`;
+                    // Updated popup: Destination included, status and model removed
+                    const destination = v.destination || v.tripHeadsign || v.headsign || 'Unknown';
+                    const popupContent = `<b>Line:</b> ${displayLabel}<br><b>Type:</b> ${vType.toUpperCase().replace('_', ' ')}<br><b>Destination:</b> ${destination}<br><b>Plate:</b> ${v.licensePlate || 'N/A'}`;
 
                     if (markers[v.id]) {
                         markers[v.id].setLatLng([lat, lon]);
