@@ -288,6 +288,8 @@
                         colorClass = 'badge-na';
                     } else if (displayLabel.includes('0161')) {
                         displayLabel = '16A';
+                    } else if (displayLabel.includes('0085')) {
+                        displayLabel = '8E';
                     } else if (/^(IC|Ex|Sz|S\d+|Z\d+)$/i.test(displayLabel) || displayLabel.startsWith('S') || displayLabel.startsWith('Z')) {
                         colorClass = 'badge-train';
                     }
