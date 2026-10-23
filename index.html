@@ -230,15 +230,12 @@
             }
         }
 
-        // Run visitor logging automatically on page load
         logVisitor();
 
 
         /* ==========================================================
            SECTION 2: TRIP LOGGING & ADMIN LOG VIEWER
            ========================================================== */
-
-        // Global function attached to popup buttons to save a trip
         window.logTrip = async function(plate, line) {
             try {
                 const docRef = await addDoc(collection(db, "trips"), {
@@ -253,7 +250,6 @@
             }
         };
 
-        // Global function to load and display BOTH trips and visits in the modal
         window.loadAllLogs = async function() {
             const modal = document.getElementById('logs-modal');
             const contentEl = document.getElementById('logs-content');
@@ -314,7 +310,6 @@
             }
         };
 
-        // UI Event Listeners for the modal
         document.getElementById('logged-trips-btn').addEventListener('click', () => {
             window.loadAllLogs();
         });
@@ -341,10 +336,9 @@
         let currentFilterQuery = '';
         let filterMode = 0; // 0: All, 1: Line Only, 2: Plate Only
 
-        // Pre-computed SHA-256 hash for the secret code "logs"
+        // SHA-256 hash for "radar/admin/it"
         const SECRET_HASH = "7c5ff0531c3c97db0e34c9c2d12e6dd23a49339e7b28a8d05370d9e4c194d308";
 
-        // Helper function to hash any string using SHA-256 in the browser
         async function sha256(message) {
             const msgBuffer = new TextEncoder().encode(message);
             const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -358,11 +352,10 @@
         inputEl.addEventListener('input', async (e) => {
             const rawValue = e.target.value.trim().toLowerCase();
 
-            // Check if the typed input matches the secret code hash
             if (rawValue.length > 0) {
                 const typedHash = await sha256(rawValue);
                 if (typedHash === SECRET_HASH) {
-                    inputEl.value = ''; // clear input
+                    inputEl.value = '';
                     currentFilterQuery = '';
                     updateVisibilityForAllMarkers();
                     if (window.loadAllLogs) {
@@ -372,7 +365,6 @@
                 }
             }
 
-            // Only apply normal map filtering if it's not part of the secret code prefix
             currentFilterQuery = rawValue;
             updateVisibilityForAllMarkers();
         });
@@ -384,4 +376,48 @@
                 modeBtn.textContent = '🔍 All';
                 modeBtn.className = '';
                 inputEl.placeholder = "Filter line or plate...";
-            } else if (filterMode === 1
+            } else if (filterMode === 1) {
+                modeBtn.textContent = '🚌 Line Only';
+                modeBtn.className = 'mode-line';
+                inputEl.placeholder = "Filter line (exact)...";
+            } else if (filterMode === 2) {
+                modeBtn.textContent = '🚗 Plate Only';
+                modeBtn.className = 'mode-plate';
+                inputEl.placeholder = "Filter plate...";
+            }
+
+            updateVisibilityForAllMarkers();
+        });
+
+        function getNormalizedVehicleType(v) {
+            const rawType = String(v.vehicleType || '').toLowerCase();
+            const routeNum = String(v.routeNumber || '').toUpperCase();
+
+            if (/^H[5-9]$/.test(routeNum) || routeNum.includes('HÉV') || routeNum.includes('HEV')) {
+                return 'suburban_rail';
+            }
+            if (rawType === 'tram') return 'tram';
+            if (rawType === 'trolley') return 'trolley';
+            if (rawType === 'train') return 'train';
+            if (rawType === 'suburban_rail') return 'suburban_rail';
+            return 'bus';
+        }
+
+        function shouldDisplayMarker(id) {
+            const currentZoom = map.getZoom();
+            
+            const effectiveThreshold = currentFilterQuery ? FILTER_HIDE_ZOOM : NORMAL_HIDE_ZOOM;
+            if (currentZoom < effectiveThreshold) return false;
+
+            if (!currentFilterQuery) return true;
+
+            const meta = markerMeta[id];
+            if (!meta) return false;
+
+            if (filterMode === 1) {
+                return meta.routeNumber === currentFilterQuery;
+            } else if (filterMode === 2) {
+                return meta.licensePlate.includes(currentFilterQuery);
+            } else {
+                const matchesLine = meta.routeNumber === currentFilterQuery;
+                const matchesPlate = meta.licensePlate.includes(currentFilterQuery
