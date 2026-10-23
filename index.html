@@ -21,6 +21,33 @@
             width: 100%;
         }
 
+        /* Search Filter UI Overlay */
+        #filter-container {
+            position: absolute;
+            top: 10px;
+            left: 55px; /* Offset from Leaflet zoom controls */
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 6px 10px;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+            display: flex;
+            align-items: center;
+        }
+        #filter-input {
+            border: 1px solid #ccc;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+            width: 180px;
+            font-weight: 500;
+        }
+        #filter-input:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 4px rgba(0, 123, 255, 0.3);
+        }
+
         .transit-badge {
             padding: 2px 7px;
             font-weight: 800;
@@ -85,6 +112,11 @@
 </head>
 <body>
 
+    <!-- Search Filter Overlay -->
+    <div id="filter-container">
+        <input type="text" id="filter-input" placeholder="Filter line or plate..." />
+    </div>
+
     <div id="map"></div>
 
     <!-- Leaflet JS -->
@@ -98,7 +130,14 @@
         }).addTo(map);
 
         const markers = {};
-        const HIDE_ZOOM_THRESHOLD = 14;
+        const markerMeta = {};
+        const HIDE_ZOOM_THRESHOLD = 13;
+        let currentFilterQuery = '';
+
+        document.getElementById('filter-input').addEventListener('input', (e) => {
+            currentFilterQuery = e.target.value.trim().toLowerCase();
+            updateVisibilityForAllMarkers();
+        });
 
         function getNormalizedVehicleType(v) {
             const rawType = String(v.vehicleType || v.routeType || '').toLowerCase();
@@ -127,14 +166,41 @@
             return rawType || 'bus';
         }
 
+        function shouldDisplayMarker(id) {
+            const currentZoom = map.getZoom();
+            
+            // Relax zoom threshold to 11 if a filter is active, otherwise keep it at 13
+            const effectiveThreshold = currentFilterQuery ? 11 : HIDE_ZOOM_THRESHOLD;
+            if (currentZoom < effectiveThreshold) return false;
+
+            if (!currentFilterQuery) return true; // No filter active
+
+            const meta = markerMeta[id];
+            if (!meta) return false;
+
+            const matchesLine = meta.routeNumber.includes(currentFilterQuery);
+            const matchesPlate = meta.licensePlate.includes(currentFilterQuery);
+
+            return matchesLine || matchesPlate;
+        }
+
+        function updateVisibilityForAllMarkers() {
+            for (let id in markers) {
+                const marker = markers[id];
+                if (shouldDisplayMarker(id)) {
+                    if (!map.hasLayer(marker)) marker.addTo(map);
+                } else {
+                    if (map.hasLayer(marker)) map.removeLayer(marker);
+                }
+            }
+        }
+
         async function fetchVehicles() {
             try {
                 const response = await fetch('https://busradar26.onrender.com/api/buses');
                 const vehicles = await response.json();
 
                 const currentVehicleIds = new Set();
-                const currentZoom = map.getZoom();
-                const shouldHide = currentZoom < HIDE_ZOOM_THRESHOLD;
 
                 vehicles.forEach(v => {
                     currentVehicleIds.add(v.id);
@@ -142,8 +208,14 @@
                     let displayLabel = v.routeNumber || 'N/A';
                     const lat = v.latitude;
                     const lon = v.longitude;
+                    const licensePlate = v.licensePlate || '';
 
                     if (!lat || !lon) return;
+
+                    markerMeta[v.id] = {
+                        routeNumber: displayLabel.toLowerCase(),
+                        licensePlate: licensePlate.toLowerCase()
+                    };
 
                     const vType = getNormalizedVehicleType(v);
                     let colorClass = `badge-${vType}`;
@@ -152,8 +224,6 @@
                         colorClass = 'badge-na';
                     } else if (displayLabel.includes('0161')) {
                         displayLabel = '16A';
-                    } else if (displayLabel.includes('0085')) {
-                        displayLabel = '8E';
                     } else if (/^(IC|Ex|Sz|S\d+|Z\d+)$/i.test(displayLabel) || displayLabel.startsWith('S') || displayLabel.startsWith('Z')) {
                         colorClass = 'badge-train';
                     }
@@ -168,25 +238,15 @@
                         iconAnchor: [19, 10]
                     });
 
-                    // Updated popup: Destination included, status and model removed
                     const destination = v.destination || v.tripHeadsign || v.headsign || 'Unknown';
-                    const popupContent = `<b>Line:</b> ${displayLabel}<br><b>Type:</b> ${vType.toUpperCase().replace('_', ' ')}<br><b>Destination:</b> ${destination}<br><b>Plate:</b> ${v.licensePlate || 'N/A'}`;
+                    const popupContent = `<b>Line:</b> ${displayLabel}<br><b>Type:</b> ${vType.toUpperCase().replace('_', ' ')}<br><b>Destination:</b> ${destination}<br><b>Plate:</b> ${licensePlate || 'N/A'}`;
 
                     if (markers[v.id]) {
                         markers[v.id].setLatLng([lat, lon]);
                         markers[v.id].setIcon(vehicleIcon);
                         markers[v.id].bindPopup(popupContent);
-                        
-                        if (shouldHide) {
-                            if (map.hasLayer(markers[v.id])) map.removeLayer(markers[v.id]);
-                        } else {
-                            if (!map.hasLayer(markers[v.id])) markers[v.id].addTo(map);
-                        }
                     } else {
                         const marker = L.marker([lat, lon], { icon: vehicleIcon });
-                        if (!shouldHide) {
-                            marker.addTo(map);
-                        }
                         marker.bindPopup(popupContent);
                         markers[v.id] = marker;
                     }
@@ -196,24 +256,19 @@
                     if (!currentVehicleIds.has(id)) {
                         map.removeLayer(markers[id]);
                         delete markers[id];
+                        delete markerMeta[id];
                     }
                 }
+
+                updateVisibilityForAllMarkers();
+
             } catch (err) {
                 console.error('Error fetching vehicles:', err);
             }
         }
 
         map.on('zoomend', () => {
-            const currentZoom = map.getZoom();
-            const shouldHide = currentZoom < HIDE_ZOOM_THRESHOLD;
-            
-            for (let id in markers) {
-                if (shouldHide) {
-                    if (map.hasLayer(markers[id])) map.removeLayer(markers[id]);
-                } else {
-                    if (!map.hasLayer(markers[id])) markers[id].addTo(map);
-                }
-            }
+            updateVisibilityForAllMarkers();
         });
 
         fetchVehicles();
