@@ -21,9 +21,9 @@
             width: 100%;
         }
 
-        /* Standalone badge box styling */
+        /* Slimmer badge box (reduced 1px top/bottom padding) */
         .transit-badge {
-            padding: 4px 7px;
+            padding: 3px 7px;
             font-weight: 800;
             font-size: 11px;
             border-radius: 6px;
@@ -71,6 +71,7 @@
         }).addTo(map);
 
         const markers = {};
+        const HIDE_ZOOM_THRESHOLD = 13; // Hide badges when zoomed out below this level
 
         async function fetchVehicles() {
             try {
@@ -78,12 +79,15 @@
                 const vehicles = await response.json();
 
                 const currentVehicleIds = new Set();
+                const currentZoom = map.getZoom();
+                const shouldHide = currentZoom < HIDE_ZOOM_THRESHOLD;
 
                 vehicles.forEach(v => {
                     currentVehicleIds.add(v.id);
 
+                    // Ensure 100E stays 100E
                     let displayLabel = v.routeNumber || 'Bus';
-                    if (displayLabel === '100E') {
+                    if (displayLabel.includes('100E') || displayLabel === 'AIRPORT EXPRESS') {
                         displayLabel = '100E';
                     }
 
@@ -94,22 +98,31 @@
 
                     const vType = (v.vehicleType || 'bus').toLowerCase();
 
-                    // Clear className so Leaflet doesn't add unwanted wrappers, render box via HTML
                     const vehicleIcon = L.divIcon({
                         className: '',
                         html: `<div class="transit-badge badge-${vType}">${displayLabel}</div>`,
-                        iconSize: [40, 24],
-                        iconAnchor: [20, 12]
+                        iconSize: [40, 22],
+                        iconAnchor: [20, 11]
                     });
 
-                    const popupContent = `<b>Line:</b> ${v.routeNumber}<br><b>Type:</b> ${vType.toUpperCase()}<br><b>Model:</b> ${v.vehicleModel || 'Unknown'}<br><b>Plate:</b> ${v.licensePlate || 'N/A'}`;
+                    const popupContent = `<b>Line:</b> ${displayLabel}<br><b>Type:</b> ${vType.toUpperCase()}<br><b>Model:</b> ${v.vehicleModel || 'Unknown'}<br><b>Plate:</b> ${v.licensePlate || 'N/A'}`;
 
                     if (markers[v.id]) {
                         markers[v.id].setLatLng([lat, lon]);
                         markers[v.id].setIcon(vehicleIcon);
                         markers[v.id].bindPopup(popupContent);
+                        
+                        // Handle zoom hide / show toggle
+                        if (shouldHide) {
+                            if (map.hasLayer(markers[v.id])) map.removeLayer(markers[v.id]);
+                        } else {
+                            if (!map.hasLayer(markers[v.id])) markers[v.id].addTo(map);
+                        }
                     } else {
-                        const marker = L.marker([lat, lon], { icon: vehicleIcon }).addTo(map);
+                        const marker = L.marker([lat, lon], { icon: vehicleIcon });
+                        if (!shouldHide) {
+                            marker.addTo(map);
+                        }
                         marker.bindPopup(popupContent);
                         markers[v.id] = marker;
                     }
@@ -126,6 +139,20 @@
                 console.error('Error fetching vehicles:', err);
             }
         }
+
+        // Listen for zoom changes to hide/show markers instantly
+        map.on('zoomend', () => {
+            const currentZoom = map.getZoom();
+            const shouldHide = currentZoom < HIDE_ZOOM_THRESHOLD;
+            
+            for (let id in markers) {
+                if (shouldHide) {
+                    if (map.hasLayer(markers[id])) map.removeLayer(markers[id]);
+                } else {
+                    if (!map.hasLayer(markers[id])) markers[id].addTo(map);
+                }
+            }
+        });
 
         fetchVehicles();
         setInterval(fetchVehicles, 5000);
