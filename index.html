@@ -347,7 +347,7 @@
             }
         };
 
-        // Button clicks the normal trip viewer
+        // Button clicks open ONLY the normal trip viewer
         document.getElementById('logged-trips-btn').addEventListener('click', () => {
             window.loadLoggedTrips();
         });
@@ -388,10 +388,11 @@
         const modeBtn = document.getElementById('mode-btn');
 
         inputEl.addEventListener('input', async (e) => {
-            const rawValue = e.target.value.trim().toLowerCase();
+            const rawValue = e.target.value.trim();
 
             if (rawValue.length > 0) {
-                const typedHash = await sha256(rawValue);
+                // Compute SHA-256 on lowercased input for consistent match
+                const typedHash = await sha256(rawValue.toLowerCase());
                 if (typedHash === SECRET_HASH) {
                     inputEl.value = '';
                     currentFilterQuery = '';
@@ -403,7 +404,7 @@
                 }
             }
 
-            currentFilterQuery = rawValue;
+            currentFilterQuery = rawValue.toLowerCase();
             updateVisibilityForAllMarkers();
         });
 
