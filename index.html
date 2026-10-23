@@ -60,6 +60,18 @@
             color: #ffffff;
             border: 1.5px solid #444444;
         }
+
+        .badge-train {
+            background-color: #002D62;
+            color: #ffffff;
+            border: 1.5px solid #001A3D;
+        }
+
+        /* Suburban Rail / HÉV: Green */
+        .badge-suburban_rail {
+            background-color: #198754;
+            color: #ffffff;
+            border: 1.5px solid #146c43;
         
     </style>
 </head>
@@ -106,6 +118,13 @@
                     if (!lat || !lon) return;
 
                     const vType = (v.vehicleType || 'bus').toLowerCase();
+
+                    if (vType === 'rail') {
+                        vType = 'train';
+                    } else if (vType === 'hev') {
+                        vType = 'suburban_rail';
+                    }
+                    
                     let colorClass = `badge-${vType}`;
                     if (displayLabel === 'N/A' || !displayLabel) {
                         colorClass = 'badge-na';
