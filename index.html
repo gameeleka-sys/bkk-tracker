@@ -21,12 +21,11 @@
             width: 100%;
         }
 
-        /* Slimmer badge box (reduced 1px top/bottom padding) */
         .transit-badge {
             padding: 2px 7px;
             font-weight: 800;
             font-size: 11px;
-            border-radius: 6px;
+            border-radius: 5px;
             text-align: center;
             box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
             white-space: nowrap;
@@ -55,12 +54,6 @@
             border: 1.5px solid #a71d2a;
         }
 
-        .badge-na {
-            background-color: #1a1a1a;
-            color: #ffffff;
-            border: 1.5px solid #444444;
-        }
-
         .badge-train {
             background-color: #002D62;
             color: #ffffff;
@@ -72,7 +65,23 @@
             background-color: #198754;
             color: #ffffff;
             border: 1.5px solid #146c43;
-        
+        }
+
+        .badge-na {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            border: 1.5px solid #444444;
+        }
+
+        @keyframes flash-stop {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.92); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .is-stopped {
+            animation: flash-stop 1.2s infinite ease-in-out;
+        }
     </style>
 </head>
 <body>
@@ -90,7 +99,36 @@
         }).addTo(map);
 
         const markers = {};
-        const HIDE_ZOOM_THRESHOLD = 14; // Hide badges when zoomed out below this level
+        const HIDE_ZOOM_THRESHOLD = 13;
+
+        function getNormalizedVehicleType(v) {
+            const rawType = String(v.vehicleType || v.routeType || '').toLowerCase();
+            const routeNum = String(v.routeNumber || v.routeId || '').toUpperCase();
+
+            // 1. Check for HÉV route numbers (H5, H6, H7, H8, H9)
+            if (/^H[5-9]$/.test(routeNum) || routeNum.includes('HÉV') || routeNum.includes('HEV')) {
+                return 'suburban_rail';
+            }
+
+            // 2. Check for numeric GTFS route types or explicit strings
+            if (rawType === '109' || rawType === 'suburban_rail' || rawType === 'hev' || rawType === 'suburbanrail') {
+                return 'suburban_rail';
+            }
+            if (rawType === '2' || rawType === 'rail' || rawType === 'train') {
+                return 'train';
+            }
+            if (rawType === '0' || rawType === 'tram') {
+                return 'tram';
+            }
+            if (rawType === '11' || rawType === 'trolley' || rawType === 'trolleybus') {
+                return 'trolley';
+            }
+            if (rawType === '3' || rawType === 'bus') {
+                return 'bus';
+            }
+
+            return rawType || 'bus';
+        }
 
         async function fetchVehicles() {
             try {
@@ -104,47 +142,36 @@
                 vehicles.forEach(v => {
                     currentVehicleIds.add(v.id);
 
-                    // Ensure 100E stays 100E
-                    let displayLabel = v.routeNumber || 'Bus';
-                    if (displayLabel.includes('0161') || displayLabel === '0161') {
-                        displayLabel = '16A';
-                    }
-                    
-                    
-
+                    const displayLabel = v.routeNumber || 'N/A';
                     const lat = v.latitude;
                     const lon = v.longitude;
 
                     if (!lat || !lon) return;
 
-                    const vType = (v.vehicleType || 'bus').toLowerCase();
+                    const vType = getNormalizedVehicleType(v);
 
-                    if (vType === 'rail') {
-                        vType = 'train';
-                    } else if (vType === 'hev') {
-                        vType = 'suburban_rail';
-                    }
-                    
                     let colorClass = `badge-${vType}`;
                     if (displayLabel === 'N/A' || !displayLabel) {
                         colorClass = 'badge-na';
                     }
 
+                    const isStopped = v.currentStatus === 'STOPPED_AT' || v.currentStatus === 0;
+                    const stopClass = isStopped ? 'is-stopped' : '';
+
                     const vehicleIcon = L.divIcon({
                         className: '',
-                        html: `<div class="transit-badge badge-${vType}">${displayLabel}</div>`,
-                        iconSize: [40, 22],
-                        iconAnchor: [20, 11]
+                        html: `<div class="transit-badge ${colorClass} ${stopClass}">${displayLabel}</div>`,
+                        iconSize: [38, 20],
+                        iconAnchor: [19, 10]
                     });
 
-                    const popupContent = `<b>Line:</b> ${displayLabel}<br><b>Type:</b> ${vType.toUpperCase()}<br><b>Model:</b> ${v.vehicleModel || 'Unknown'}<br><b>Plate:</b> ${v.licensePlate || 'N/A'}`;
+                    const popupContent = `<b>Line:</b> ${displayLabel}<br><b>Type:</b> ${vType.toUpperCase().replace('_', ' ')}<br><b>Status:</b> ${isStopped ? 'Stopped at station' : 'In transit'}<br><b>Model:</b> ${v.vehicleModel || 'Unknown'}<br><b>Plate:</b> ${v.licensePlate || 'N/A'}`;
 
                     if (markers[v.id]) {
                         markers[v.id].setLatLng([lat, lon]);
                         markers[v.id].setIcon(vehicleIcon);
                         markers[v.id].bindPopup(popupContent);
                         
-                        // Handle zoom hide / show toggle
                         if (shouldHide) {
                             if (map.hasLayer(markers[v.id])) map.removeLayer(markers[v.id]);
                         } else {
@@ -160,7 +187,6 @@
                     }
                 });
 
-                // Remove stale markers
                 for (let id in markers) {
                     if (!currentVehicleIds.has(id)) {
                         map.removeLayer(markers[id]);
@@ -172,7 +198,6 @@
             }
         }
 
-        // Listen for zoom changes to hide/show markers instantly
         map.on('zoomend', () => {
             const currentZoom = map.getZoom();
             const shouldHide = currentZoom < HIDE_ZOOM_THRESHOLD;
