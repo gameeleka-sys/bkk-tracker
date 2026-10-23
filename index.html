@@ -94,12 +94,11 @@
 
                     // Ensure 100E stays 100E
                     let displayLabel = v.routeNumber || 'Bus';
-                    if (displayLabel.includes('100E') || displayLabel === '100E') {
-                        displayLabel = '100E';
-                    }
-                    if (displayLabel.includes('0161') {
+                    if (displayLabel.includes('0161') || displayLabel === '0161') {
                         displayLabel = '16A';
                     }
+                    
+                    
 
                     const lat = v.latitude;
                     const lon = v.longitude;
