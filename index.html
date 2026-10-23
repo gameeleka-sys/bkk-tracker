@@ -153,7 +153,10 @@
                     let colorClass = `badge-${vType}`;
                     if (displayLabel === 'N/A' || !displayLabel) {
                         colorClass = 'badge-na';
-                    }
+                    }    else if (displayLabel.includes('0161') || displayLabel === ('0161') {
+                        displayLabel = '16A';
+                    }    else if (displayLabel.includes('Ex') || displayLabel === ('Ex') || displayLabel.includes('IC') || displayLabel === ('IC') || displayLabel.includes('S') || displayLabel === ('S') || displayLabel.includes('S10') || displayLabel === ('S10') || displayLabel.includes('S12') || displayLabel === ('S12') || displayLabel.includes('S30') || displayLabel === ('S30') || displayLabel.includes('S40') || displayLabel === ('S40') || displayLabel.includes('S42') || displayLabel === ('S42') || displayLabel.includes('Sz') || displayLabel === ('Sz') || displayLabel.includes('Z30') || displayLabel === ('Z30') {
+                        colorClass = 'badge-train';
 
                     const isStopped = v.currentStatus === 'STOPPED_AT' || v.currentStatus === 0;
                     const stopClass = isStopped ? 'is-stopped' : '';
