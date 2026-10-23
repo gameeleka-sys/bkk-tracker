@@ -54,6 +54,13 @@
             color: #ffffff;
             border: 1.5px solid #a71d2a;
         }
+
+        .badge-na {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            border: 1.5px solid #444444;
+        }
+        
     </style>
 </head>
 <body>
@@ -97,6 +104,10 @@
                     if (!lat || !lon) return;
 
                     const vType = (v.vehicleType || 'bus').toLowerCase();
+                    let colorClass = `badge-${vType}`;
+                    if (displayLabel === 'N/A' || !displayLabel) {
+                        colorClass = 'badge-na';
+                    }
 
                     const vehicleIcon = L.divIcon({
                         className: '',
