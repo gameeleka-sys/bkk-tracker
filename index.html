@@ -276,7 +276,7 @@
 
         async function fetchVehicles() {
             try {
-                const response = await fetch('/api/buses');
+                const response = await fetch('https://busradar26.onrender.com/api/buses');
                 const vehicles = await response.json();
 
                 const currentVehicleIds = new Set();
