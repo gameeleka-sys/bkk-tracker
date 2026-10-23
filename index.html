@@ -21,12 +21,19 @@
             width: 100%;
         }
 
-        /* Search Filter UI Overlay */
-        #filter-container {
+        /* UI Control Wrapper at Top-Left */
+        #ui-overlay {
             position: absolute;
             top: 10px;
             left: 55px; /* Offset from Leaflet zoom controls */
             z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        /* Search Filter UI Overlay */
+        #filter-container {
             background: rgba(255, 255, 255, 0.95);
             padding: 6px 10px;
             border-radius: 8px;
@@ -76,6 +83,43 @@
             border-color: #146c43;
         }
 
+        /* Logged Trips Button */
+        #logged-trips-btn {
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #ccc;
+            padding: 7px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+            text-align: left;
+            outline: none;
+            color: #333;
+            transition: background-color 0.2s;
+        }
+        #logged-trips-btn:hover {
+            background-color: #f1f3f5;
+        }
+
+        /* Logged Trips Modal */
+        #logs-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2000;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3);
+            width: 360px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+
         .transit-badge {
             padding: 2px 7px;
             font-weight: 800;
@@ -91,98 +135,122 @@
         }
 
         /* Vehicle-specific colors */
-        .badge-bus {
-            background-color: #007bff;
-            color: #ffffff;
-            border: 1.5px solid #0056b3;
-        }
-
-        .badge-tram {
-            background-color: #ffd700;
-            color: #000000;
-            border: 1.5px solid #d4ac0d;
-        }
-
-        .badge-trolley {
-            background-color: #dc3545;
-            color: #ffffff;
-            border: 1.5px solid #a71d2a;
-        }
-
-        .badge-train {
-            background-color: #002D62;
-            color: #ffffff;
-            border: 1.5px solid #001A3D;
-        }
-
-        .badge-suburban_rail {
-            background-color: #198754;
-            color: #ffffff;
-            border: 1.5px solid #146c43;
-        }
-
-        .badge-na {
-            background-color: #1a1a1a;
-            color: #ffffff;
-            border: 1.5px solid #444444;
-        }
+        .badge-bus { background-color: #007bff; color: #ffffff; border: 1.5px solid #0056b3; }
+        .badge-tram { background-color: #ffd700; color: #000000; border: 1.5px solid #d4ac0d; }
+        .badge-trolley { background-color: #dc3545; color: #ffffff; border: 1.5px solid #a71d2a; }
+        .badge-train { background-color: #002D62; color: #ffffff; border: 1.5px solid #001A3D; }
+        .badge-suburban_rail { background-color: #198754; color: #ffffff; border: 1.5px solid #146c43; }
+        .badge-na { background-color: #1a1a1a; color: #ffffff; border: 1.5px solid #444444; }
 
         @keyframes flash-stop {
             0% { opacity: 1; transform: scale(1); }
             50% { opacity: 0.4; transform: scale(0.92); }
             100% { opacity: 1; transform: scale(1); }
         }
-
-        .is-stopped {
-            animation: flash-stop 1.2s infinite ease-in-out;
-        }
+        .is-stopped { animation: flash-stop 1.2s infinite ease-in-out; }
     </style>
 </head>
 <body>
 
-    <!-- Search Filter Overlay -->
-    <div id="filter-container">
-        <input type="text" id="filter-input" placeholder="Filter..." />
-        <button id="mode-btn" title="Click to change filter mode">🔍 All</button>
+    <!-- UI Overlay Controls -->
+    <div id="ui-overlay">
+        <!-- Search Filter Container -->
+        <div id="filter-container">
+            <input type="text" id="filter-input" placeholder="Filter..." />
+            <button id="mode-btn" title="Click to change filter mode">🔍 All</button>
+        </div>
+        <!-- Logged Trips Button -->
+        <button id="logged-trips-btn">📋 Logged Trips</button>
+    </div>
+
+    <!-- Modal for viewing logged trips -->
+    <div id="logs-modal">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0; font-size: 16px; color: #111;">Logged Trips</h3>
+            <button id="close-logs-btn" style="background: none; border: none; font-size: 20px; cursor: pointer; font-weight: bold; color: #666;">&times;</button>
+        </div>
+        <div id="logs-list" style="font-size: 13px; color: #333;">Loading...</div>
     </div>
 
     <div id="map"></div>
 
     <!-- Firebase Client Module -->
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
-    import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyCYZ_dF-pSt-N1vzY0cCl9_-U6pdP9vMJo",
-        authDomain: "budapestradar26.firebaseapp.com",
-        projectId: "budapestradar26",
-        storageBucket: "budapestradar26.firebasestorage.app",
-        messagingSenderId: "258977567627",
-        appId: "1:258977567627:web:aa600e0d1aad576e85158e",
-        measurementId: "G-XRM4409JGL"
-    };
+        const firebaseConfig = {
+            apiKey: "AIzaSyCYZ_dF-pSt-N1vzY0cCl9_-U6pdP9vMJo",
+            authDomain: "budapestradar26.firebaseapp.com",
+            projectId: "budapestradar26",
+            storageBucket: "budapestradar26.firebasestorage.app",
+            messagingSenderId: "258977567627",
+            appId: "1:258977567627:web:aa600e0d1aad576e85158e",
+            measurementId: "G-XRM4409JGL"
+        };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
-    // Make logTrip globally accessible for Leaflet popup buttons
-    window.logTrip = async function(plate, line) {
-        try {
-            // addDoc returns a reference containing the auto-generated ID
-            const docRef = await addDoc(collection(db, "trips"), {
-                licensePlate: plate || 'N/A',
-                line: line || 'N/A',
-                date: new Date().toISOString()
-            });
+        // Make logTrip globally accessible for Leaflet popup buttons
+        window.logTrip = async function(plate, line) {
+            try {
+                const docRef = await addDoc(collection(db, "trips"), {
+                    licensePlate: plate || 'N/A',
+                    line: line || 'N/A',
+                    date: new Date().toISOString()
+                });
+                alert(`Trip logged successfully!\n\nDocument ID: ${docRef.id}\nLine: ${line}\nPlate: ${plate}`);
+            } catch (error) {
+                console.error("Error writing document: ", error);
+                alert("Failed to log trip. Check console for details.");
+            }
+        };
 
-            alert(`Trip logged successfully!\n\nDocument ID: ${docRef.id}\nLine: ${line}\nPlate: ${plate}`);
-        } catch (error) {
-            console.error("Error writing document: ", error);
-            alert("Failed to log trip. Check console for details.");
-        }
-    };
-</script>
+        // Fetch and display all logged trips in the modal
+        window.loadLoggedTrips = async function() {
+            const modal = document.getElementById('logs-modal');
+            const listEl = document.getElementById('logs-list');
+            modal.style.display = 'block';
+            listEl.innerHTML = 'Loading trips...';
+
+            try {
+                const querySnapshot = await getDocs(collection(db, "trips"));
+                
+                if (querySnapshot.empty) {
+                    listEl.innerHTML = '<p style="color: #666; text-align: center; padding: 20px 0;">No logged trips found yet.</p>';
+                    return;
+                }
+
+                let html = '';
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const dateStr = data.date ? new Date(data.date).toLocaleString() : 'N/A';
+                    html += `
+                        <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 8px 12px; margin-bottom: 8px;">
+                            <div><b>ID:</b> <span style="font-family: monospace; font-size: 11px; color: #555;">${doc.id}</span></div>
+                            <div><b>Line:</b> ${data.line || 'N/A'}</div>
+                            <div><b>Plate:</b> ${data.licensePlate || 'N/A'}</div>
+                            <div style="font-size: 11px; color: #888; margin-top: 2px;">${dateStr}</div>
+                        </div>
+                    `;
+                });
+                listEl.innerHTML = html;
+            } catch (error) {
+                console.error("Error fetching logs:", error);
+                listEl.innerHTML = '<p style="color: red; text-align: center;">Failed to load logged trips.</p>';
+            }
+        };
+
+        // Event listeners for modal buttons
+        document.getElementById('logged-trips-btn').addEventListener('click', () => {
+            window.loadLoggedTrips();
+        });
+
+        document.getElementById('close-logs-btn').addEventListener('click', () => {
+            document.getElementById('logs-modal').style.display = 'none';
+        });
+    </script>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
