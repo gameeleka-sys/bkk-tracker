@@ -335,9 +335,13 @@
                 document.getElementById('auth-modal').style.display = 'none';
             } catch (error) {
                 console.error("Auth error:", error);
-                alert("Authentication failed: " + error.message);
+                
+                // Check for the specific disabled account error
+                if (error.code === 'auth/user-disabled') {
+                    alert("Account disabled or non-active. Please contact us at br26.admin@gmail.com");
+                }
+                // Suppress all other errors silently without alerting the user
             }
-        });
 
         document.getElementById('logout-btn').addEventListener('click', async () => {
             if (!auth) return;
