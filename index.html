@@ -50,7 +50,7 @@
             align-items: center;
             gap: 6px;
             flex: 1;
-            min-width: 0; /* Allows container to shrink on small mobile screens */
+            min-width: 0;
         }
         #filter-input {
             border: 1px solid #ccc;
@@ -103,7 +103,7 @@
             box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
             outline: none;
             transition: background-color 0.2s;
-            flex-shrink: 0; /* Prevents button from squishing or disappearing */
+            flex-shrink: 0;
         }
         #profile-btn:hover {
             background-color: #e2e6ea;
@@ -202,4 +202,309 @@
     <div id="auth-modal" class="modal">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <h3 id="auth-title" style="margin: 0; font-size: 16px; color: #111;">Account Login</h3>
-            <button id="close-auth-btn" style="background:
+            <button id="close-auth-btn" style="background: none; border: none; font-size: 20px; cursor: pointer; font-weight: bold; color: #666;">&times;</button>
+        </div>
+        <div id="auth-body">
+            <input type="email" id="auth-email" placeholder="Email" style="width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;" />
+            <input type="password" id="auth-password" placeholder="Password" style="width: 100%; padding: 8px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;" />
+            <button id="auth-submit-btn" style="width: 100%; background: #007bff; color: white; border: none; padding: 8px; border-radius: 6px; font-weight: 600; cursor: pointer;">Sign In</button>
+            <p style="text-align: center; font-size: 12px; margin-top: 10px; color: #666;">
+                <span id="auth-toggle-text">Don't have an account?</span> 
+                <a href="#" id="auth-switch-mode" style="color: #007bff; text-decoration: none; font-weight: 600;">Register</a>
+            </p>
+        </div>
+        <div id="auth-logged-in-view" style="display: none; text-align: center;">
+            <p id="user-email-display" style="font-size: 13px; color: #333; margin-bottom: 15px; font-weight: 500;"></p>
+            <button id="logout-btn" style="width: 100%; background: #dc3545; color: white; border: none; padding: 8px; border-radius: 6px; font-weight: 600; cursor: pointer;">Sign Out</button>
+        </div>
+    </div>
+
+    <!-- Modal for viewing logs -->
+    <div id="logs-modal" class="modal">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 id="logs-modal-title" style="margin: 0; font-size: 16px; color: #111;">Logged Trips</h3>
+            <button id="close-logs-btn" style="background: none; border: none; font-size: 20px; cursor: pointer; font-weight: bold; color: #666;">&times;</button>
+        </div>
+        <div id="logs-content" style="font-size: 13px; color: #333;">Loading...</div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Firebase Client Module -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCYZ_dF-pSt-N1vzY0cCl9_-U6pdP9vMJo",
+            authDomain: "budapestradar26.firebaseapp.com",
+            projectId: "budapestradar26",
+            storageBucket: "budapestradar26.firebasestorage.app",
+            messagingSenderId: "258977567627",
+            appId: "1:258977567627:web:aa600e0d1aad576e85158e",
+            measurementId: "G-XRM4409JGL"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let currentUser = null;
+        let isRegisterMode = false;
+
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+            const profileBtn = document.getElementById('profile-btn');
+            const authBody = document.getElementById('auth-body');
+            const loggedInView = document.getElementById('auth-logged-in-view');
+            const emailDisplay = document.getElementById('user-email-display');
+
+            if (user) {
+                profileBtn.classList.add('logged-in');
+                profileBtn.title = `Logged in as ${user.email}`;
+                authBody.style.display = 'none';
+                loggedInView.style.display = 'block';
+                emailDisplay.textContent = `Signed in as: ${user.email}`;
+            } else {
+                profileBtn.classList.remove('logged-in');
+                profileBtn.title = 'Account / Login';
+                authBody.style.display = 'block';
+                loggedInView.style.display = 'none';
+            }
+        });
+
+        document.getElementById('profile-btn').addEventListener('click', () => {
+            document.getElementById('auth-modal').style.display = 'block';
+        });
+
+        document.getElementById('close-auth-btn').addEventListener('click', () => {
+            document.getElementById('auth-modal').style.display = 'none';
+        });
+
+        document.getElementById('auth-switch-mode').addEventListener('click', (e) => {
+            e.preventDefault();
+            isRegisterMode = !isRegisterMode;
+            document.getElementById('auth-title').textContent = isRegisterMode ? 'Create Account' : 'Account Login';
+            document.getElementById('auth-submit-btn').textContent = isRegisterMode ? 'Register' : 'Sign In';
+            document.getElementById('auth-toggle-text').textContent = isRegisterMode ? 'Already have an account?' : "Don't have an account?";
+            document.getElementById('auth-switch-mode').textContent = isRegisterMode ? 'Sign In' : 'Register';
+        });
+
+        document.getElementById('auth-submit-btn').addEventListener('click', async () => {
+            const email = document.getElementById('auth-email').value.trim();
+            const password = document.getElementById('auth-password').value.trim();
+
+            if (!email || !password) {
+                alert("Please fill in both email and password.");
+                return;
+            }
+
+            try {
+                if (isRegisterMode) {
+                    await createUserWithEmailAndPassword(auth, email, password);
+                    alert("Account created and logged in successfully!");
+                } else {
+                    await signInWithEmailAndPassword(auth, email, password);
+                    alert("Logged in successfully!");
+                }
+                document.getElementById('auth-modal').style.display = 'none';
+            } catch (error) {
+                console.error("Auth error:", error);
+                alert("Authentication failed: " + error.message);
+            }
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                alert("Logged out successfully.");
+                document.getElementById('auth-modal').style.display = 'none';
+            } catch (error) {
+                console.error("Logout error:", error);
+            }
+        });
+
+        function getClientInfo() {
+            const ua = navigator.userAgent;
+            let browser = "Unknown Browser";
+            let os = "Unknown OS";
+
+            if (ua.indexOf("Win") !== -1) os = "Windows";
+            else if (ua.indexOf("Mac") !== -1) os = "macOS";
+            else if (ua.indexOf("iPhone") !== -1 || ua.indexOf("iPad") !== -1) os = "iOS";
+            else if (ua.indexOf("Android") !== -1) os = "Android";
+            else if (ua.indexOf("Linux") !== -1) os = "Linux";
+
+            if (ua.indexOf("Edg") !== -1) browser = "Microsoft Edge";
+            else if (ua.indexOf("Chrome") !== -1 && ua.indexOf("Edg") === -1) browser = "Google Chrome";
+            else if (ua.indexOf("Safari") !== -1 && ua.indexOf("Chrome") === -1) browser = "Apple Safari";
+            else if (ua.indexOf("Firefox") !== -1) browser = "Mozilla Firefox";
+            else if (ua.indexOf("Opera") !== -1 || ua.indexOf("OPR") !== -1) browser = "Opera";
+
+            return { os, browser };
+        }
+
+        async function logVisitor() {
+            try {
+                const { os, browser } = getClientInfo();
+                await addDoc(collection(db, "visits"), {
+                    os: os,
+                    browser: browser,
+                    timestamp: new Date().toISOString()
+                });
+            } catch (error) {
+                console.error("Visitor logging error:", error);
+            }
+        }
+        logVisitor();
+
+        window.logTrip = async function(plate, line) {
+            if (!currentUser) {
+                alert("You must be logged in to log trips! Tap the 👤 profile button to sign in.");
+                document.getElementById('auth-modal').style.display = 'block';
+                return;
+            }
+
+            try {
+                const docRef = await addDoc(collection(db, "trips"), {
+                    userId: currentUser.uid,
+                    userEmail: currentUser.email,
+                    licensePlate: plate || 'N/A',
+                    line: line || 'N/A',
+                    date: new Date().toISOString()
+                });
+                alert(`Trip logged successfully to your account!\n\nLine: ${line}\nPlate: ${plate}`);
+            } catch (error) {
+                console.error("Trip logging error:", error);
+                alert("Failed to log trip. Check console for details.");
+            }
+        };
+
+        window.loadLoggedTrips = async function() {
+            if (!currentUser) {
+                alert("Please log in to view your logged trips.");
+                document.getElementById('auth-modal').style.display = 'block';
+                return;
+            }
+
+            const modal = document.getElementById('logs-modal');
+            const titleEl = document.getElementById('logs-modal-title');
+            const contentEl = document.getElementById('logs-content');
+            
+            modal.style.display = 'block';
+            titleEl.textContent = 'Your Logged Trips';
+            contentEl.innerHTML = 'Fetching your trips from Firestore...';
+
+            try {
+                const q = query(collection(db, "trips"), where("userId", "==", currentUser.uid));
+                const tripsSnapshot = await getDocs(q);
+                
+                if (tripsSnapshot.empty) {
+                    contentEl.innerHTML = '<p style="color: #666; font-size: 12px; text-align: center;">No logged trips found for your account.</p>';
+                    return;
+                }
+
+                let html = '<div style="max-height: 250px; overflow-y: auto;">';
+                tripsSnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const dateStr = data.date ? new Date(data.date).toLocaleString() : 'N/A';
+                    html += `
+                        <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 6px 10px; margin-bottom: 6px; font-size: 12px;">
+                            <div><b>Line:</b> ${data.line || 'N/A'} | <b>Plate:</b> ${data.licensePlate || 'N/A'}</div>
+                            <div style="font-size: 11px; color: #888; margin-top: 2px;">${dateStr}</div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                contentEl.innerHTML = html;
+            } catch (error) {
+                console.error("Error fetching trips:", error);
+                contentEl.innerHTML = '<p style="color: red; text-align: center;">Failed to load trips.</p>';
+            }
+        };
+
+        window.loadAdminPanel = async function() {
+            const modal = document.getElementById('logs-modal');
+            const titleEl = document.getElementById('logs-modal-title');
+            const contentEl = document.getElementById('logs-content');
+            
+            modal.style.display = 'block';
+            titleEl.textContent = '🔒 Secure Admin Logs';
+            contentEl.innerHTML = 'Fetching secure system logs...';
+
+            try {
+                const [tripsSnapshot, visitsSnapshot] = await Promise.all([
+                    getDocs(collection(db, "trips")),
+                    getDocs(collection(db, "visits"))
+                ]);
+
+                let html = '';
+
+                html += `<h4 style="margin: 0 0 8px 0; color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 4px;">🌐 Visitor Telemetry (${visitsSnapshot.size})</h4>`;
+                if (visitsSnapshot.empty) {
+                    html += `<p style="color: #666; font-size: 12px; margin-bottom: 15px;">No visitor logs found.</p>`;
+                } else {
+                    html += `<div style="max-height: 150px; overflow-y: auto; margin-bottom: 15px;">`;
+                    visitsSnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        const dateStr = data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A';
+                        html += `
+                            <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 6px 10px; margin-bottom: 6px; font-size: 12px;">
+                                <div><b>OS:</b> ${data.os || 'Unknown'} | <b>Browser:</b> ${data.browser || 'Unknown'}</div>
+                                <div style="font-size: 11px; color: #888; margin-top: 2px;">${dateStr}</div>
+                            </div>
+                        `;
+                    });
+                    html += `</div>`;
+                }
+
+                html += `<h4 style="margin: 0 0 8px 0; color: #198754; border-bottom: 2px solid #198754; padding-bottom: 4px;">🚌 All Logged Trips (${tripsSnapshot.size})</h4>`;
+                if (tripsSnapshot.empty) {
+                    html += `<p style="color: #666; font-size: 12px;">No logged trips found.</p>`;
+                } else {
+                    html += `<div style="max-height: 150px; overflow-y: auto;">`;
+                    tripsSnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        const dateStr = data.date ? new Date(data.date).toLocaleString() : 'N/A';
+                        html += `
+                            <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 6px 10px; margin-bottom: 6px; font-size: 12px;">
+                                <div><b>User:</b> ${data.userEmail || 'Unknown'}</div>
+                                <div><b>Line:</b> ${data.line || 'N/A'} | <b>Plate:</b> ${data.licensePlate || 'N/A'}</div>
+                                <div style="font-size: 11px; color: #888; margin-top: 2px;">${dateStr}</div>
+                            </div>
+                        `;
+                    });
+                    html += `</div>`;
+                }
+
+                contentEl.innerHTML = html;
+            } catch (error) {
+                console.error("Error fetching admin logs:", error);
+                contentEl.innerHTML = '<p style="color: red; text-align: center;">Failed to load system logs.</p>';
+            }
+        };
+
+        document.getElementById('logged-trips-btn').addEventListener('click', () => {
+            window.loadLoggedTrips();
+        });
+
+        document.getElementById('close-logs-btn').addEventListener('click', () => {
+            document.getElementById('logs-modal').style.display = 'none';
+        });
+    </script>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const map = L.map('map').setView([47.4979, 19.0402], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        const markers = {};
+        const markerMeta = {};
+        const NORMAL_HIDE_ZOOM = 13;
+        const FILTER_HIDE_ZOOM = 1
