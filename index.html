@@ -32,7 +32,13 @@
             gap: 6px;
         }
 
-        /* Search Filter UI Overlay */
+        /* Search Filter UI Row */
+        #filter-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
         #filter-container {
             background: rgba(255, 255, 255, 0.95);
             padding: 6px 10px;
@@ -48,7 +54,7 @@
             border-radius: 6px;
             font-size: 13px;
             outline: none;
-            width: 150px;
+            width: 120px;
             font-weight: 500;
         }
         #filter-input:focus {
@@ -60,7 +66,7 @@
         #mode-btn {
             background-color: #f8f9fa;
             border: 1px solid #ccc;
-            padding: 6px 10px;
+            padding: 6px 8px;
             border-radius: 6px;
             font-size: 12px;
             font-weight: 600;
@@ -72,15 +78,29 @@
         #mode-btn:hover {
             background-color: #e2e6ea;
         }
-        #mode-btn.mode-line {
-            background-color: #007bff;
-            color: white;
-            border-color: #0056b3;
+
+        /* Circular Profile Button */
+        #profile-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+            outline: none;
+            transition: background-color 0.2s;
         }
-        #mode-btn.mode-plate {
-            background-color: #198754;
-            color: white;
-            border-color: #146c43;
+        #profile-btn:hover {
+            background-color: #e2e6ea;
+        }
+        #profile-btn.logged-in {
+            border-color: #198754;
+            background-color: #d1e7dd;
         }
 
         /* Logged Trips Button */
@@ -102,8 +122,8 @@
             background-color: #f1f3f5;
         }
 
-        /* Modal for Logs */
-        #logs-modal {
+        /* Modals */
+        .modal {
             display: none;
             position: fixed;
             top: 50%;
@@ -114,7 +134,7 @@
             padding: 20px;
             border-radius: 12px;
             box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3);
-            width: 400px;
+            width: 320px;
             max-height: 85vh;
             overflow-y: auto;
             box-sizing: border-box;
@@ -134,7 +154,6 @@
             box-sizing: border-box;
         }
 
-        /* Vehicle-specific colors */
         .badge-bus { background-color: #007bff; color: #ffffff; border: 1.5px solid #0056b3; }
         .badge-tram { background-color: #ffd700; color: #000000; border: 1.5px solid #d4ac0d; }
         .badge-trolley { background-color: #dc3545; color: #ffffff; border: 1.5px solid #a71d2a; }
@@ -154,22 +173,46 @@
 
     <!-- UI Overlay Controls -->
     <div id="ui-overlay">
-        <!-- Search Filter Container -->
-        <div id="filter-container">
-            <input type="text" id="filter-input" placeholder="Filter..." />
-            <button id="mode-btn" title="Click to change filter mode">🔍 All</button>
+        <div id="filter-row">
+            <!-- Search Filter Container -->
+            <div id="filter-container">
+                <input type="text" id="filter-input" placeholder="Filter..." />
+                <button id="mode-btn" title="Click to change filter mode">🔍 All</button>
+            </div>
+            <!-- Circular Profile Button -->
+            <button id="profile-btn" title="Account / Login">👤</button>
         </div>
         <!-- Logged Trips Button -->
         <button id="logged-trips-btn">📋 Logged Trips</button>
     </div>
 
+    <!-- Auth Modal (Login / Register) -->
+    <div id="auth-modal" class="modal">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 id="auth-title" style="margin: 0; font-size: 16px; color: #111;">Account Login</h3>
+            <button id="close-auth-btn" style="background: none; border: none; font-size: 20px; cursor: pointer; font-weight: bold; color: #666;">&times;</button>
+        </div>
+        <div id="auth-body">
+            <input type="email" id="auth-email" placeholder="Email" style="width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;" />
+            <input type="password" id="auth-password" placeholder="Password" style="width: 100%; padding: 8px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;" />
+            <button id="auth-submit-btn" style="width: 100%; background: #007bff; color: white; border: none; padding: 8px; border-radius: 6px; font-weight: 600; cursor: pointer;">Sign In</button>
+            <p style="text-align: center; font-size: 12px; margin-top: 10px; color: #666;">
+                <span id="auth-toggle-text">Don't have an account?</span> 
+                <a href="#" id="auth-switch-mode" style="color: #007bff; text-decoration: none; font-weight: 600;">Register</a>
+            </p>
+        </div>
+        <div id="auth-logged-in-view" style="display: none; text-align: center;">
+            <p id="user-email-display" style="font-size: 13px; color: #333; margin-bottom: 15px; font-weight: 500;"></p>
+            <button id="logout-btn" style="width: 100%; background: #dc3545; color: white; border: none; padding: 8px; border-radius: 6px; font-weight: 600; cursor: pointer;">Sign Out</button>
+        </div>
+    </div>
+
     <!-- Modal for viewing logs -->
-    <div id="logs-modal">
+    <div id="logs-modal" class="modal">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h3 id="logs-modal-title" style="margin: 0; font-size: 16px; color: #111;">Logged Trips</h3>
             <button id="close-logs-btn" style="background: none; border: none; font-size: 20px; cursor: pointer; font-weight: bold; color: #666;">&times;</button>
         </div>
-        
         <div id="logs-content" style="font-size: 13px; color: #333;">Loading...</div>
     </div>
 
@@ -178,7 +221,8 @@
     <!-- Firebase Client Module -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCYZ_dF-pSt-N1vzY0cCl9_-U6pdP9vMJo",
@@ -192,6 +236,87 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let currentUser = null;
+        let isRegisterMode = false;
+
+        // Auth state tracking
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+            const profileBtn = document.getElementById('profile-btn');
+            const authBody = document.getElementById('auth-body');
+            const loggedInView = document.getElementById('auth-logged-in-view');
+            const emailDisplay = document.getElementById('user-email-display');
+
+            if (user) {
+                profileBtn.classList.add('logged-in');
+                profileBtn.title = `Logged in as ${user.email}`;
+                authBody.style.display = 'none';
+                loggedInView.style.display = 'block';
+                emailDisplay.textContent = `Signed in as: ${user.email}`;
+            } else {
+                profileBtn.classList.remove('logged-in');
+                profileBtn.title = 'Account / Login';
+                authBody.style.display = 'block';
+                loggedInView.style.display = 'none';
+            }
+        });
+
+        // Profile button modal toggle
+        document.getElementById('profile-btn').addEventListener('click', () => {
+            document.getElementById('auth-modal').style.display = 'block';
+        });
+
+        document.getElementById('close-auth-btn').addEventListener('click', () => {
+            document.getElementById('auth-modal').style.display = 'none';
+        });
+
+        // Toggle Login vs Register mode
+        document.getElementById('auth-switch-mode').addEventListener('click', (e) => {
+            e.preventDefault();
+            isRegisterMode = !isRegisterMode;
+            document.getElementById('auth-title').textContent = isRegisterMode ? 'Create Account' : 'Account Login';
+            document.getElementById('auth-submit-btn').textContent = isRegisterMode ? 'Register' : 'Sign In';
+            document.getElementById('auth-toggle-text').textContent = isRegisterMode ? 'Already have an account?' : "Don't have an account?";
+            document.getElementById('auth-switch-mode').textContent = isRegisterMode ? 'Sign In' : 'Register';
+        });
+
+        // Submit Login / Register
+        document.getElementById('auth-submit-btn').addEventListener('click', async () => {
+            const email = document.getElementById('auth-email').value.trim();
+            const password = document.getElementById('auth-password').value.trim();
+
+            if (!email || !password) {
+                alert("Please fill in both email and password.");
+                return;
+            }
+
+            try {
+                if (isRegisterMode) {
+                    await createUserWithEmailAndPassword(auth, email, password);
+                    alert("Account created and logged in successfully!");
+                } else {
+                    await signInWithEmailAndPassword(auth, email, password);
+                    alert("Logged in successfully!");
+                }
+                document.getElementById('auth-modal').style.display = 'none';
+            } catch (error) {
+                console.error("Auth error:", error);
+                alert("Authentication failed: " + error.message);
+            }
+        });
+
+        // Logout
+        document.getElementById('logout-btn').addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                alert("Logged out successfully.");
+                document.getElementById('auth-modal').style.display = 'none';
+            } catch (error) {
+                console.error("Logout error:", error);
+            }
+        });
 
         // 1. Visitor Telemetry Logging
         function getClientInfo() {
@@ -222,44 +347,57 @@
                     browser: browser,
                     timestamp: new Date().toISOString()
                 });
-                console.log("Visitor telemetry logged.");
             } catch (error) {
                 console.error("Visitor logging error:", error);
             }
         }
-
         logVisitor();
 
-        // 2. Trip Logging from Vehicle Popups
+        // 2. Trip Logging (Attached to User UID)
         window.logTrip = async function(plate, line) {
+            if (!currentUser) {
+                alert("You must be logged in to log trips! Tap the 👤 profile button to sign in.");
+                document.getElementById('auth-modal').style.display = 'block';
+                return;
+            }
+
             try {
                 const docRef = await addDoc(collection(db, "trips"), {
+                    userId: currentUser.uid,
+                    userEmail: currentUser.email,
                     licensePlate: plate || 'N/A',
                     line: line || 'N/A',
                     date: new Date().toISOString()
                 });
-                alert(`Trip logged successfully!\n\nDocument ID: ${docRef.id}\nLine: ${line}\nPlate: ${plate}`);
+                alert(`Trip logged successfully to your account!\n\nLine: ${line}\nPlate: ${plate}`);
             } catch (error) {
                 console.error("Trip logging error:", error);
                 alert("Failed to log trip. Check console for details.");
             }
         };
 
-        // 3. Load ONLY Logged Trips (for the button)
+        // 3. Load Logged Trips (Filtered by Current User)
         window.loadLoggedTrips = async function() {
+            if (!currentUser) {
+                alert("Please log in to view your logged trips.");
+                document.getElementById('auth-modal').style.display = 'block';
+                return;
+            }
+
             const modal = document.getElementById('logs-modal');
             const titleEl = document.getElementById('logs-modal-title');
             const contentEl = document.getElementById('logs-content');
             
             modal.style.display = 'block';
-            titleEl.textContent = 'Logged Trips';
-            contentEl.innerHTML = 'Fetching trips from Firestore...';
+            titleEl.textContent = 'Your Logged Trips';
+            contentEl.innerHTML = 'Fetching your trips from Firestore...';
 
             try {
-                const tripsSnapshot = await getDocs(collection(db, "trips"));
+                const q = query(collection(db, "trips"), where("userId", "==", currentUser.uid));
+                const tripsSnapshot = await getDocs(q);
                 
                 if (tripsSnapshot.empty) {
-                    contentEl.innerHTML = '<p style="color: #666; font-size: 12px; text-align: center;">No logged trips found.</p>';
+                    contentEl.innerHTML = '<p style="color: #666; font-size: 12px; text-align: center;">No logged trips found for your account.</p>';
                     return;
                 }
 
@@ -269,7 +407,6 @@
                     const dateStr = data.date ? new Date(data.date).toLocaleString() : 'N/A';
                     html += `
                         <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 6px 10px; margin-bottom: 6px; font-size: 12px;">
-                            <div><b>ID:</b> <span style="font-family: monospace; font-size: 10px; color: #555;">${doc.id}</span></div>
                             <div><b>Line:</b> ${data.line || 'N/A'} | <b>Plate:</b> ${data.licensePlate || 'N/A'}</div>
                             <div style="font-size: 11px; color: #888; margin-top: 2px;">${dateStr}</div>
                         </div>
@@ -283,7 +420,7 @@
             }
         };
 
-        // 4. Load BOTH Visits and Trips (Unlocked ONLY by Secret Code)
+        // 4. Load Admin Panel (Unlocked ONLY by Secret Code)
         window.loadAdminPanel = async function() {
             const modal = document.getElementById('logs-modal');
             const titleEl = document.getElementById('logs-modal-title');
@@ -301,7 +438,7 @@
 
                 let html = '';
 
-                // --- VISITOR LOGS SECTION ---
+                // --- VISITOR LOGS ---
                 html += `<h4 style="margin: 0 0 8px 0; color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 4px;">🌐 Visitor Telemetry (${visitsSnapshot.size})</h4>`;
                 if (visitsSnapshot.empty) {
                     html += `<p style="color: #666; font-size: 12px; margin-bottom: 15px;">No visitor logs found.</p>`;
@@ -320,8 +457,8 @@
                     html += `</div>`;
                 }
 
-                // --- TRIP LOGS SECTION ---
-                html += `<h4 style="margin: 0 0 8px 0; color: #198754; border-bottom: 2px solid #198754; padding-bottom: 4px;">🚌 Logged Trips (${tripsSnapshot.size})</h4>`;
+                // --- ALL TRIPS LOGS ---
+                html += `<h4 style="margin: 0 0 8px 0; color: #198754; border-bottom: 2px solid #198754; padding-bottom: 4px;">🚌 All Logged Trips (${tripsSnapshot.size})</h4>`;
                 if (tripsSnapshot.empty) {
                     html += `<p style="color: #666; font-size: 12px;">No logged trips found.</p>`;
                 } else {
@@ -331,7 +468,7 @@
                         const dateStr = data.date ? new Date(data.date).toLocaleString() : 'N/A';
                         html += `
                             <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 6px 10px; margin-bottom: 6px; font-size: 12px;">
-                                <div><b>ID:</b> <span style="font-family: monospace; font-size: 10px; color: #555;">${doc.id}</span></div>
+                                <div><b>User:</b> ${data.userEmail || 'Unknown'}</div>
                                 <div><b>Line:</b> ${data.line || 'N/A'} | <b>Plate:</b> ${data.licensePlate || 'N/A'}</div>
                                 <div style="font-size: 11px; color: #888; margin-top: 2px;">${dateStr}</div>
                             </div>
@@ -372,15 +509,6 @@
         const FILTER_HIDE_ZOOM = 11;
         let currentFilterQuery = '';
         let filterMode = 0; // 0: All, 1: Line Only, 2: Plate Only
-
-        // Pre-computed SHA-256 hash for "radar/admin/it"
-        const SECRET_HASH = "7c5ff0531c3c97db0e34c9c2d12e6dd23a49339e7b28a8d05370d9e4c194d308";
-
-        // Bulletproof synchronous SHA-256 implementation using a pure JS fallback so it NEVER blocks or fails on file://
-        function simpleSha256Hex(ascii) {
-            // Pre-computed exact hash match for "radar/admin/it" to guarantee 100% reliability
-            return "7c5ff0531c3c97db0e34c9c2d12e6dd23a49339e7b28a8d05370d9e4c194d308";
-        }
 
         const inputEl = document.getElementById('filter-input');
         const modeBtn = document.getElementById('mode-btn');
@@ -430,9 +558,9 @@
             return routeNum;
         }
 
-        function getNormalizedVehicleType(v) {
+        function getNormalizedVehicleType(v, formattedRoute) {
             const rawType = String(v.vehicleType || '').toLowerCase();
-            const routeNum = String(v.routeNumber || '').toUpperCase();
+            const routeNum = String(formattedRoute || '').toUpperCase();
 
             if (/^H[5-9]$/.test(routeNum) || routeNum.includes('HÉV') || routeNum.includes('HEV')) {
                 return 'suburban_rail';
@@ -446,7 +574,6 @@
 
         function shouldDisplayMarker(id) {
             const currentZoom = map.getZoom();
-            
             const effectiveThreshold = currentFilterQuery ? FILTER_HIDE_ZOOM : NORMAL_HIDE_ZOOM;
             if (currentZoom < effectiveThreshold) return false;
 
@@ -487,7 +614,7 @@
                 vehicles.forEach(v => {
                     currentVehicleIds.add(v.id);
 
-                    let displayLabel = v.routeNumber || 'N/A';
+                    let displayLabel = formatRouteNumber(v.routeNumber);
                     const lat = v.latitude;
                     const lon = v.longitude;
                     const licensePlate = v.licensePlate || 'N/A';
@@ -499,7 +626,7 @@
                         licensePlate: licensePlate.toLowerCase()
                     };
 
-                    const vType = getNormalizedVehicleType(v);
+                    const vType = getNormalizedVehicleType(v, displayLabel);
                     let colorClass = `badge-${vType}`;
 
                     if (!displayLabel || displayLabel === 'N/A') {
