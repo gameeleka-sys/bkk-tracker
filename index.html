@@ -113,8 +113,17 @@
             border-color: #198754;
             background-color: #d1e7dd;
         }
+        #profile-btn.is-admin {
+            border-color: #dc3545;
+            background-color: #f8d7da;
+        }
 
-        #logged-trips-btn {
+        .btn-group {
+            display: flex;
+            gap: 6px;
+        }
+
+        .action-btn {
             background: rgba(255, 255, 255, 0.95);
             border: 1px solid #ccc;
             padding: 7px 12px;
@@ -129,7 +138,7 @@
             transition: background-color 0.2s;
             width: fit-content;
         }
-        #logged-trips-btn:hover {
+        .action-btn:hover {
             background-color: #f1f3f5;
         }
 
@@ -190,7 +199,10 @@
             </div>
             <button id="profile-btn" title="Account / Login">👤</button>
         </div>
-        <button id="logged-trips-btn">📋 Logged Trips</button>
+        <div class="btn-group">
+            <button id="logged-trips-btn" class="action-btn">📋 Logged Trips</button>
+            <button id="admin-panel-btn" class="action-btn" style="display: none; border-color: #dc3545; color: #dc3545;">🔒 Admin Panel</button>
+        </div>
     </div>
 
     <div id="auth-modal" class="modal">
@@ -223,10 +235,12 @@
 
     <div id="map"></div>
 
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
+        // Set your personal admin email here
+        const ADMIN_EMAIL = "your-email@gmail.com"; // <-- REPLACE WITH YOUR ACTUAL FIREBASE LOGIN EMAIL
+
         const firebaseConfig = {
             apiKey: "AIzaSyCYZ_dF-pSt-N1vzY0cCl9_-U6pdP9vMJo",
             authDomain: "budapestradar26.firebaseapp.com",
@@ -246,6 +260,7 @@
 
         let currentUser = null;
         let isRegisterMode = false;
+        let isAdmin = false;
 
         if (auth) {
             auth.onAuthStateChanged((user) => {
@@ -254,16 +269,29 @@
                 const authBody = document.getElementById('auth-body');
                 const loggedInView = document.getElementById('auth-logged-in-view');
                 const emailDisplay = document.getElementById('user-email-display');
+                const adminBtn = document.getElementById('admin-panel-btn');
 
                 if (user) {
-                    profileBtn.classList.add('logged-in');
-                    profileBtn.title = `Logged in as ${user.email}`;
+                    isAdmin = (user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+
+                    if (isAdmin) {
+                        profileBtn.classList.add('is-admin');
+                        profileBtn.title = `Logged in as Admin (${user.email})`;
+                        adminBtn.style.display = 'block';
+                    } else {
+                        profileBtn.classList.add('logged-in');
+                        profileBtn.title = `Logged in as ${user.email}`;
+                        adminBtn.style.display = 'none';
+                    }
+
                     authBody.style.display = 'none';
                     loggedInView.style.display = 'block';
-                    emailDisplay.textContent = `Signed in as: ${user.email}`;
+                    emailDisplay.textContent = `Signed in as: ${user.email} ${isAdmin ? '👑 (Admin)' : ''}`;
                 } else {
-                    profileBtn.classList.remove('logged-in');
+                    isAdmin = false;
+                    profileBtn.classList.remove('logged-in', 'is-admin');
                     profileBtn.title = 'Account / Login';
+                    adminBtn.style.display = 'none';
                     authBody.style.display = 'block';
                     loggedInView.style.display = 'none';
                 }
@@ -288,10 +316,7 @@
         });
 
         document.getElementById('auth-submit-btn').addEventListener('click', async () => {
-            if (!auth) {
-                alert("Firebase Auth not loaded.");
-                return;
-            }
+            if (!auth) return;
             const email = document.getElementById('auth-email').value.trim();
             const password = document.getElementById('auth-password').value.trim();
 
@@ -367,10 +392,7 @@
                 document.getElementById('auth-modal').style.display = 'block';
                 return;
             }
-            if (!db) {
-                alert("Firestore not loaded.");
-                return;
-            }
+            if (!db) return;
 
             try {
                 await db.collection("trips").add({
@@ -431,7 +453,12 @@
         };
 
         window.loadAdminPanel = async function() {
+            if (!isAdmin) {
+                alert("Unauthorized access.");
+                return;
+            }
             if (!db) return;
+
             const modal = document.getElementById('logs-modal');
             const titleEl = document.getElementById('logs-modal-title');
             const contentEl = document.getElementById('logs-content');
@@ -496,6 +523,10 @@
             window.loadLoggedTrips();
         });
 
+        document.getElementById('admin-panel-btn').addEventListener('click', () => {
+            window.loadAdminPanel();
+        });
+
         document.getElementById('close-logs-btn').addEventListener('click', () => {
             document.getElementById('logs-modal').style.display = 'none';
         });
@@ -524,7 +555,7 @@
                 inputEl.value = '';
                 currentFilterQuery = '';
                 updateVisibilityForAllMarkers();
-                if (window.loadAdminPanel) {
+                if (window.loadAdminPanel && isAdmin) {
                     window.loadAdminPanel();
                 }
                 return;
