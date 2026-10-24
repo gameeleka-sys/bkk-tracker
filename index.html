@@ -8,6 +8,11 @@
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
+    <!-- Firebase App & Firestore & Auth (Compat SDKs) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    
     <style>
         body, html {
             margin: 0;
@@ -230,12 +235,11 @@
 
     <div id="map"></div>
 
-    <!-- Firebase Client Module -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+    <script>
+        // Initialize Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyCYZ_dF-pSt-N1vzY0cCl9_-U6pdP9vMJo",
             authDomain: "budapestradar26.firebaseapp.com",
@@ -246,14 +250,14 @@
             measurementId: "G-XRM4409JGL"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
 
         let currentUser = null;
         let isRegisterMode = false;
 
-        onAuthStateChanged(auth, (user) => {
+        auth.onAuthStateChanged((user) => {
             currentUser = user;
             const profileBtn = document.getElementById('profile-btn');
             const authBody = document.getElementById('auth-body');
@@ -302,10 +306,10 @@
 
             try {
                 if (isRegisterMode) {
-                    await createUserWithEmailAndPassword(auth, email, password);
+                    await auth.createUserWithEmailAndPassword(email, password);
                     alert("Account created and logged in successfully!");
                 } else {
-                    await signInWithEmailAndPassword(auth, email, password);
+                    await auth.signInWithEmailAndPassword(email, password);
                     alert("Logged in successfully!");
                 }
                 document.getElementById('auth-modal').style.display = 'none';
@@ -317,7 +321,7 @@
 
         document.getElementById('logout-btn').addEventListener('click', async () => {
             try {
-                await signOut(auth);
+                await auth.signOut();
                 alert("Logged out successfully.");
                 document.getElementById('auth-modal').style.display = 'none';
             } catch (error) {
@@ -347,164 +351,3 @@
 
         async function logVisitor() {
             try {
-                const { os, browser } = getClientInfo();
-                await addDoc(collection(db, "visits"), {
-                    os: os,
-                    browser: browser,
-                    timestamp: new Date().toISOString()
-                });
-            } catch (error) {
-                console.error("Visitor logging error:", error);
-            }
-        }
-        logVisitor();
-
-        window.logTrip = async function(plate, line) {
-            if (!currentUser) {
-                alert("You must be logged in to log trips! Tap the 👤 profile button to sign in.");
-                document.getElementById('auth-modal').style.display = 'block';
-                return;
-            }
-
-            try {
-                const docRef = await addDoc(collection(db, "trips"), {
-                    userId: currentUser.uid,
-                    userEmail: currentUser.email,
-                    licensePlate: plate || 'N/A',
-                    line: line || 'N/A',
-                    date: new Date().toISOString()
-                });
-                alert(`Trip logged successfully to your account!\n\nLine: ${line}\nPlate: ${plate}`);
-            } catch (error) {
-                console.error("Trip logging error:", error);
-                alert("Failed to log trip. Check console for details.");
-            }
-        };
-
-        window.loadLoggedTrips = async function() {
-            if (!currentUser) {
-                alert("Please log in to view your logged trips.");
-                document.getElementById('auth-modal').style.display = 'block';
-                return;
-            }
-
-            const modal = document.getElementById('logs-modal');
-            const titleEl = document.getElementById('logs-modal-title');
-            const contentEl = document.getElementById('logs-content');
-            
-            modal.style.display = 'block';
-            titleEl.textContent = 'Your Logged Trips';
-            contentEl.innerHTML = 'Fetching your trips from Firestore...';
-
-            try {
-                const q = query(collection(db, "trips"), where("userId", "==", currentUser.uid));
-                const tripsSnapshot = await getDocs(q);
-                
-                if (tripsSnapshot.empty) {
-                    contentEl.innerHTML = '<p style="color: #666; font-size: 12px; text-align: center;">No logged trips found for your account.</p>';
-                    return;
-                }
-
-                let html = '<div style="max-height: 250px; overflow-y: auto;">';
-                tripsSnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    const dateStr = data.date ? new Date(data.date).toLocaleString() : 'N/A';
-                    html += `
-                        <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 6px 10px; margin-bottom: 6px; font-size: 12px;">
-                            <div><b>Line:</b> ${data.line || 'N/A'} | <b>Plate:</b> ${data.licensePlate || 'N/A'}</div>
-                            <div style="font-size: 11px; color: #888; margin-top: 2px;">${dateStr}</div>
-                        </div>
-                    `;
-                });
-                html += '</div>';
-                contentEl.innerHTML = html;
-            } catch (error) {
-                console.error("Error fetching trips:", error);
-                contentEl.innerHTML = '<p style="color: red; text-align: center;">Failed to load trips.</p>';
-            }
-        };
-
-        window.loadAdminPanel = async function() {
-            const modal = document.getElementById('logs-modal');
-            const titleEl = document.getElementById('logs-modal-title');
-            const contentEl = document.getElementById('logs-content');
-            
-            modal.style.display = 'block';
-            titleEl.textContent = '🔒 Secure Admin Logs';
-            contentEl.innerHTML = 'Fetching secure system logs...';
-
-            try {
-                const [tripsSnapshot, visitsSnapshot] = await Promise.all([
-                    getDocs(collection(db, "trips")),
-                    getDocs(collection(db, "visits"))
-                ]);
-
-                let html = '';
-
-                html += `<h4 style="margin: 0 0 8px 0; color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 4px;">🌐 Visitor Telemetry (${visitsSnapshot.size})</h4>`;
-                if (visitsSnapshot.empty) {
-                    html += `<p style="color: #666; font-size: 12px; margin-bottom: 15px;">No visitor logs found.</p>`;
-                } else {
-                    html += `<div style="max-height: 150px; overflow-y: auto; margin-bottom: 15px;">`;
-                    visitsSnapshot.forEach((doc) => {
-                        const data = doc.data();
-                        const dateStr = data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A';
-                        html += `
-                            <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 6px 10px; margin-bottom: 6px; font-size: 12px;">
-                                <div><b>OS:</b> ${data.os || 'Unknown'} | <b>Browser:</b> ${data.browser || 'Unknown'}</div>
-                                <div style="font-size: 11px; color: #888; margin-top: 2px;">${dateStr}</div>
-                            </div>
-                        `;
-                    });
-                    html += `</div>`;
-                }
-
-                html += `<h4 style="margin: 0 0 8px 0; color: #198754; border-bottom: 2px solid #198754; padding-bottom: 4px;">🚌 All Logged Trips (${tripsSnapshot.size})</h4>`;
-                if (tripsSnapshot.empty) {
-                    html += `<p style="color: #666; font-size: 12px;">No logged trips found.</p>`;
-                } else {
-                    html += `<div style="max-height: 150px; overflow-y: auto;">`;
-                    tripsSnapshot.forEach((doc) => {
-                        const data = doc.data();
-                        const dateStr = data.date ? new Date(data.date).toLocaleString() : 'N/A';
-                        html += `
-                            <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 6px 10px; margin-bottom: 6px; font-size: 12px;">
-                                <div><b>User:</b> ${data.userEmail || 'Unknown'}</div>
-                                <div><b>Line:</b> ${data.line || 'N/A'} | <b>Plate:</b> ${data.licensePlate || 'N/A'}</div>
-                                <div style="font-size: 11px; color: #888; margin-top: 2px;">${dateStr}</div>
-                            </div>
-                        `;
-                    });
-                    html += `</div>`;
-                }
-
-                contentEl.innerHTML = html;
-            } catch (error) {
-                console.error("Error fetching admin logs:", error);
-                contentEl.innerHTML = '<p style="color: red; text-align: center;">Failed to load system logs.</p>';
-            }
-        };
-
-        document.getElementById('logged-trips-btn').addEventListener('click', () => {
-            window.loadLoggedTrips();
-        });
-
-        document.getElementById('close-logs-btn').addEventListener('click', () => {
-            document.getElementById('logs-modal').style.display = 'none';
-        });
-    </script>
-
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        const map = L.map('map').setView([47.4979, 19.0402], 13);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
-
-        const markers = {};
-        const markerMeta = {};
-        const NORMAL_HIDE_ZOOM = 13;
-        const FILTER_HIDE_ZOOM = 1
