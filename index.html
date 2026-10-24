@@ -8,7 +8,7 @@
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
-    <!-- Firebase App & Firestore & Auth (Compat SDKs) -->
+    <!-- Firebase Compat SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -182,6 +182,11 @@
 </head>
 <body>
 
+    <!-- On-screen error banner in case anything fails -->
+    <div id="error-banner" style="display:none; position:fixed; top:0; left:0; width:100%; background:red; color:white; padding:15px; z-index:99999; font-family:monospace; font-size:14px; box-sizing:border-box;">
+        <b>CRASH DETECTED:</b> <span id="error-msg"></span>
+    </div>
+
     <div id="ui-overlay">
         <div id="filter-row">
             <div id="filter-container">
@@ -226,6 +231,11 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
+        window.onerror = function(msg, url, line) {
+            document.getElementById('error-banner').style.display = 'block';
+            document.getElementById('error-msg').textContent = `${msg} (Line ${line})`;
+        };
+
         const firebaseConfig = {
             apiKey: "AIzaSyCYZ_dF-pSt-N1vzY0cCl9_-U6pdP9vMJo",
             authDomain: "budapestradar26.firebaseapp.com",
