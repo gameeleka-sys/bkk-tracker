@@ -182,11 +182,6 @@
 </head>
 <body>
 
-    <!-- On-screen error banner in case anything fails -->
-    <div id="error-banner" style="display:none; position:fixed; top:0; left:0; width:100%; background:red; color:white; padding:15px; z-index:99999; font-family:monospace; font-size:14px; box-sizing:border-box;">
-        <b>CRASH DETECTED:</b> <span id="error-msg"></span>
-    </div>
-
     <div id="ui-overlay">
         <div id="filter-row">
             <div id="filter-container">
@@ -228,14 +223,10 @@
 
     <div id="map"></div>
 
+    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        window.onerror = function(msg, url, line) {
-            document.getElementById('error-banner').style.display = 'block';
-            document.getElementById('error-msg').textContent = `${msg} (Line ${line})`;
-        };
-
         const firebaseConfig = {
             apiKey: "AIzaSyCYZ_dF-pSt-N1vzY0cCl9_-U6pdP9vMJo",
             authDomain: "budapestradar26.firebaseapp.com",
@@ -246,33 +237,38 @@
             measurementId: "G-XRM4409JGL"
         };
 
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
+        if (typeof firebase !== 'undefined') {
+            firebase.initializeApp(firebaseConfig);
+        }
+
+        const db = typeof firebase !== 'undefined' ? firebase.firestore() : null;
+        const auth = typeof firebase !== 'undefined' ? firebase.auth() : null;
 
         let currentUser = null;
         let isRegisterMode = false;
 
-        auth.onAuthStateChanged((user) => {
-            currentUser = user;
-            const profileBtn = document.getElementById('profile-btn');
-            const authBody = document.getElementById('auth-body');
-            const loggedInView = document.getElementById('auth-logged-in-view');
-            const emailDisplay = document.getElementById('user-email-display');
+        if (auth) {
+            auth.onAuthStateChanged((user) => {
+                currentUser = user;
+                const profileBtn = document.getElementById('profile-btn');
+                const authBody = document.getElementById('auth-body');
+                const loggedInView = document.getElementById('auth-logged-in-view');
+                const emailDisplay = document.getElementById('user-email-display');
 
-            if (user) {
-                profileBtn.classList.add('logged-in');
-                profileBtn.title = `Logged in as ${user.email}`;
-                authBody.style.display = 'none';
-                loggedInView.style.display = 'block';
-                emailDisplay.textContent = `Signed in as: ${user.email}`;
-            } else {
-                profileBtn.classList.remove('logged-in');
-                profileBtn.title = 'Account / Login';
-                authBody.style.display = 'block';
-                loggedInView.style.display = 'none';
-            }
-        });
+                if (user) {
+                    profileBtn.classList.add('logged-in');
+                    profileBtn.title = `Logged in as ${user.email}`;
+                    authBody.style.display = 'none';
+                    loggedInView.style.display = 'block';
+                    emailDisplay.textContent = `Signed in as: ${user.email}`;
+                } else {
+                    profileBtn.classList.remove('logged-in');
+                    profileBtn.title = 'Account / Login';
+                    authBody.style.display = 'block';
+                    loggedInView.style.display = 'none';
+                }
+            });
+        }
 
         document.getElementById('profile-btn').addEventListener('click', () => {
             document.getElementById('auth-modal').style.display = 'block';
@@ -292,6 +288,10 @@
         });
 
         document.getElementById('auth-submit-btn').addEventListener('click', async () => {
+            if (!auth) {
+                alert("Firebase Auth not loaded.");
+                return;
+            }
             const email = document.getElementById('auth-email').value.trim();
             const password = document.getElementById('auth-password').value.trim();
 
@@ -316,6 +316,7 @@
         });
 
         document.getElementById('logout-btn').addEventListener('click', async () => {
+            if (!auth) return;
             try {
                 await auth.signOut();
                 alert("Logged out successfully.");
@@ -346,6 +347,7 @@
         }
 
         async function logVisitor() {
+            if (!db) return;
             try {
                 const { os, browser } = getClientInfo();
                 await db.collection("visits").add({
@@ -363,6 +365,10 @@
             if (!currentUser) {
                 alert("You must be logged in to log trips! Tap the 👤 profile button to sign in.");
                 document.getElementById('auth-modal').style.display = 'block';
+                return;
+            }
+            if (!db) {
+                alert("Firestore not loaded.");
                 return;
             }
 
@@ -387,6 +393,7 @@
                 document.getElementById('auth-modal').style.display = 'block';
                 return;
             }
+            if (!db) return;
 
             const modal = document.getElementById('logs-modal');
             const titleEl = document.getElementById('logs-modal-title');
@@ -424,6 +431,7 @@
         };
 
         window.loadAdminPanel = async function() {
+            if (!db) return;
             const modal = document.getElementById('logs-modal');
             const titleEl = document.getElementById('logs-modal-title');
             const contentEl = document.getElementById('logs-content');
