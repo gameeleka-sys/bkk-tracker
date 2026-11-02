@@ -238,7 +238,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        const ADMIN_EMAIL = "br26.admin@gmail.com"; // <-- REPLACE WITH YOUR ACTUAL ADMIN EMAIL
+        const ADMIN_EMAIL = "your-email@gmail.com"; // <-- REPLACE WITH YOUR ADMIN EMAIL
 
         const firebaseConfig = {
             apiKey: "AIzaSyCYZ_dF-pSt-N1vzY0cCl9_-U6pdP9vMJo",
@@ -251,11 +251,15 @@
         };
 
         if (typeof firebase !== 'undefined') {
-            firebase.initializeApp(firebaseConfig);
+            try {
+                firebase.initializeApp(firebaseConfig);
+            } catch (e) {
+                // Ignore duplicate app init errors
+            }
         }
 
-        const db = typeof firebase !== 'undefined' ? firebase.firestore() : null;
-        const auth = typeof firebase !== 'undefined' ? firebase.auth() : null;
+        const db = (typeof firebase !== 'undefined' && firebase.firestore) ? firebase.firestore() : null;
+        const auth = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth() : null;
 
         let currentUser = null;
         let isRegisterMode = false;
@@ -270,7 +274,7 @@
                 const emailDisplay = document.getElementById('user-email-display');
                 const adminBtn = document.getElementById('admin-panel-btn');
 
-                if (user) {
+                if (user && user.email) {
                     isAdmin = (user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
 
                     if (isAdmin) {
@@ -315,7 +319,10 @@
         });
 
         document.getElementById('auth-submit-btn').addEventListener('click', async () => {
-            if (!auth) return;
+            if (!auth) {
+                alert("Firebase Auth not loaded.");
+                return;
+            }
             const email = document.getElementById('auth-email').value.trim();
             const password = document.getElementById('auth-password').value.trim();
 
@@ -335,13 +342,11 @@
                 document.getElementById('auth-modal').style.display = 'none';
             } catch (error) {
                 console.error("Auth error:", error);
-                
-                // Check for the specific disabled account error
                 if (error.code === 'auth/user-disabled') {
                     alert("Account disabled or non-active. Please contact us at br26.admin@gmail.com");
                 }
-                // Suppress all other errors silently without alerting the user
             }
+        });
 
         document.getElementById('logout-btn').addEventListener('click', async () => {
             if (!auth) return;
@@ -376,7 +381,6 @@
 
         async function logVisitor() {
             if (!db) return;
-            // Skip logging visitor telemetry if the current user is an admin
             if (currentUser && currentUser.email && currentUser.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
                 return;
             }
@@ -715,7 +719,7 @@
 
                 updateVisibilityForAllMarkers();
 
-            } catch (err) {
+`          } catch (err) {
                 console.error('Error fetching vehicles:', err);
             }
         }
