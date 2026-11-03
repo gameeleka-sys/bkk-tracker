@@ -5,10 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>BKK Live Tracker</title>
     
-    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
-    <!-- Firebase Compat SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -238,7 +236,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        const ADMIN_EMAIL = "br26.admin@gmail.com; // <-- REPLACE WITH YOUR ADMIN EMAIL
+        const ADMIN_EMAIL = "br26.admin@gmail.com"; // <-- REPLACE WITH YOUR ADMIN EMAIL
 
         const firebaseConfig = {
             apiKey: "AIzaSyCYZ_dF-pSt-N1vzY0cCl9_-U6pdP9vMJo",
@@ -601,7 +599,6 @@
             const clean = String(routeNum).trim().toUpperCase();
             if (clean === '0161') return '16A';
             if (clean === '0085') return '8E';
-            if (clean === '2005') return 'AIRPORT EXPRESS';
             return routeNum;
         }
 
