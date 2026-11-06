@@ -1,14 +1,3 @@
-
-100%
-Version history
-All versions
-Today
-6 November, 16:22
-Current version
-Admin
-Imported .html file
-Turn on screen reader support
-Banner hidden To enable screen reader support, press Ctrl+Alt+Z To learn about keyboard shortcuts, press Ctrl+slash
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -16,10 +5,8 @@ Banner hidden To enable screen reader support, press Ctrl+Alt+Z To learn about k
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>BKK Live Tracker</title>
     
-    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
-    <!-- Firebase Compat SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -249,7 +236,7 @@ Banner hidden To enable screen reader support, press Ctrl+Alt+Z To learn about k
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        const ADMIN_EMAIL = "br26.admin@gmail.com"; // <-- REPLACE WITH YOUR ACTUAL ADMIN EMAIL
+        const ADMIN_EMAIL = "your-email@gmail.com"; // <-- REPLACE WITH YOUR ADMIN EMAIL
 
         const firebaseConfig = {
             apiKey: "AIzaSyCYZ_dF-pSt-N1vzY0cCl9_-U6pdP9vMJo",
@@ -262,11 +249,15 @@ Banner hidden To enable screen reader support, press Ctrl+Alt+Z To learn about k
         };
 
         if (typeof firebase !== 'undefined') {
-            firebase.initializeApp(firebaseConfig);
+            try {
+                firebase.initializeApp(firebaseConfig);
+            } catch (e) {
+                // Ignore duplicate app init errors
+            }
         }
 
-        const db = typeof firebase !== 'undefined' ? firebase.firestore() : null;
-        const auth = typeof firebase !== 'undefined' ? firebase.auth() : null;
+        const db = (typeof firebase !== 'undefined' && firebase.firestore) ? firebase.firestore() : null;
+        const auth = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth() : null;
 
         let currentUser = null;
         let isRegisterMode = false;
@@ -281,7 +272,7 @@ Banner hidden To enable screen reader support, press Ctrl+Alt+Z To learn about k
                 const emailDisplay = document.getElementById('user-email-display');
                 const adminBtn = document.getElementById('admin-panel-btn');
 
-                if (user) {
+                if (user && user.email) {
                     isAdmin = (user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
 
                     if (isAdmin) {
@@ -326,7 +317,10 @@ Banner hidden To enable screen reader support, press Ctrl+Alt+Z To learn about k
         });
 
         document.getElementById('auth-submit-btn').addEventListener('click', async () => {
-            if (!auth) return;
+            if (!auth) {
+                alert("Firebase Auth not loaded.");
+                return;
+            }
             const email = document.getElementById('auth-email').value.trim();
             const password = document.getElementById('auth-password').value.trim();
 
@@ -346,7 +340,9 @@ Banner hidden To enable screen reader support, press Ctrl+Alt+Z To learn about k
                 document.getElementById('auth-modal').style.display = 'none';
             } catch (error) {
                 console.error("Auth error:", error);
-                alert("Authentication failed: " + error.message);
+                if (error.code === 'auth/user-disabled') {
+                    alert("Account disabled or non-active. Please contact us at br26.admin@gmail.com");
+                }
             }
         });
 
@@ -383,7 +379,6 @@ Banner hidden To enable screen reader support, press Ctrl+Alt+Z To learn about k
 
         async function logVisitor() {
             if (!db) return;
-            // Skip logging visitor telemetry if the current user is an admin
             if (currentUser && currentUser.email && currentUser.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
                 return;
             }
@@ -736,5 +731,3 @@ Banner hidden To enable screen reader support, press Ctrl+Alt+Z To learn about k
     </script>
 </body>
 </html>
-index
-Displaying index.
