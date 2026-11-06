@@ -15,30 +15,25 @@ const db = admin.firestore();
 
 const app = express();
 const PORT = process.env.PORT || 3333;
-const BKK_API_KEY = '204dc94e-0379-4403-af32-888232066de5'; // Replace if needed
+const BKK_API_KEY = '204dc94e-0379-4403-af32-888232066de5';
 
-// Enable CORS for all origins (fixes your frontend CORS block)
+// Enable CORS for all origins
 app.use(cors());
-app.use(express.json()); // Required to parse JSON request bodies
+app.use(express.json());
 
 const routeDetailsMap = new Map();
 
-// Helper function to customize line name display
 function getDisplayLine(routeNumber) {
   const line = String(routeNumber).trim();
-  
   if (line === '100E' || line.includes('100E')) {
     return 'AIRPORT EXPRESS';
   }
-  
   if (!line || line === 'Transit') {
     return 'Transit'; 
   }
-
   return line;
 }
 
-// Helper function to guess vehicle model based on plate prefix
 function getVehicleModel(licensePlate) {
   if (!licensePlate || licensePlate === 'N/A') return 'Unknown Model';
   const plate = licensePlate.toUpperCase();
@@ -74,7 +69,7 @@ async function loadStaticRoutes() {
   });
 }
 
-// Serve static files from the root directory and add catch-all route for index.html
+// Serve static files from the root directory
 app.use(express.static(__dirname));
 
 function fetchBuffer(url) {
@@ -101,7 +96,6 @@ app.post('/api/set-admin', async (req, res) => {
         const token = authHeader.split('Bearer ')[1];
         const decodedToken = await admin.auth().verifyIdToken(token);
 
-        // Verify that the person making the request is actually an admin in Firestore
         const requesterDoc = await db.collection('users').doc(decodedToken.uid).get();
         if (!requesterDoc.exists || !requesterDoc.data().admin) {
             return res.status(403).json({ error: 'Forbidden: Only admins can perform this action' });
@@ -112,7 +106,6 @@ app.post('/api/set-admin', async (req, res) => {
             return res.status(400).json({ error: 'Invalid request parameters' });
         }
 
-        // Apply secure Firebase Auth Custom Claims & update Firestore document
         await admin.auth().setCustomUserClaims(targetUid, { admin: makeAdmin });
         await db.collection('users').doc(targetUid).update({ admin: makeAdmin });
 
@@ -180,9 +173,11 @@ app.get('/api/buses', async (req, res) => {
   }
 });
 
-// Fallback route to ensure index.html serves correctly for frontend routes / refreshes
+// Fallback route for index.html
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-loadStaticRoutes().then(()
+loadStaticRoutes().then(() => {
+  app.listen(PORT, () => console.log(`Server active on port ${PORT}`));
+});
