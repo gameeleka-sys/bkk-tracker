@@ -5,6 +5,7 @@ const GtfsRealtimeBindings = require('gtfs-realtime-bindings');
 const fs = require('fs');
 const csv = require('csv-parser');
 const admin = require('firebase-admin');
+const path = require('path');
 
 // Initialize Firebase Admin SDK for secure server-side checks
 admin.initializeApp({
@@ -73,7 +74,8 @@ async function loadStaticRoutes() {
   });
 }
 
-app.use(express.static('public'));
+// Serve static files from the root directory and add catch-all route for index.html
+app.use(express.static(__dirname));
 
 function fetchBuffer(url) {
   return new Promise((resolve, reject) => {
@@ -178,6 +180,9 @@ app.get('/api/buses', async (req, res) => {
   }
 });
 
-loadStaticRoutes().then(() => {
-  app.listen(PORT, () => console.log(`Server active on port ${PORT}`));
+// Fallback route to ensure index.html serves correctly for frontend routes / refreshes
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
+
+loadStaticRoutes().then(()
