@@ -28,6 +28,9 @@ function getDisplayLine(routeNumber) {
   if (line === '100E' || line.includes('100E')) {
     return 'AIRPORT EXPRESS';
   }
+  if (line === '0075' || line.includes('0075')) {
+    return '7E';
+  }
   if (!line || line === 'Transit') {
     return 'Transit'; 
   }
