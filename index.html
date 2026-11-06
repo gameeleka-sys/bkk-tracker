@@ -209,6 +209,10 @@
             <button id="close-auth-btn" style="background: none; border: none; font-size: 20px; cursor: pointer; font-weight: bold; color: #666;">&times;</button>
         </div>
         <div id="auth-body">
+            <!-- Username input field (automatically hidden during login, shown during register) -->
+            <div id="username-field-container" style="display: none; margin-bottom: 8px;">
+                <input type="text" id="auth-username" placeholder="Username" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;" />
+            </div>
             <input type="email" id="auth-email" placeholder="Email" style="width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;" />
             <input type="password" id="auth-password" placeholder="Password" style="width: 100%; padding: 8px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;" />
             <button id="auth-submit-btn" style="width: 100%; background: #007bff; color: white; border: none; padding: 8px; border-radius: 6px; font-weight: 600; cursor: pointer;">Sign In</button>
@@ -236,7 +240,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        const ADMIN_EMAIL = "br26.admin@gmail.com"; // <-- REPLACE WITH YOUR ADMIN EMAIL
+        const ADMIN_EMAIL = "br26.admin@gmail.com";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCYZ_dF-pSt-N1vzY0cCl9_-U6pdP9vMJo",
@@ -314,6 +318,9 @@
             document.getElementById('auth-submit-btn').textContent = isRegisterMode ? 'Register' : 'Sign In';
             document.getElementById('auth-toggle-text').textContent = isRegisterMode ? 'Already have an account?' : "Don't have an account?";
             document.getElementById('auth-switch-mode').textContent = isRegisterMode ? 'Sign In' : 'Register';
+            
+            // Show or hide username input container based on whether user is registering
+            document.getElementById('username-field-container').style.display = isRegisterMode ? 'block' : 'none';
         });
 
         document.getElementById('auth-submit-btn').addEventListener('click', async () => {
@@ -323,15 +330,38 @@
             }
             const email = document.getElementById('auth-email').value.trim();
             const password = document.getElementById('auth-password').value.trim();
+            const username = document.getElementById('auth-username').value.trim();
 
             if (!email || !password) {
                 alert("Please fill in both email and password.");
                 return;
             }
 
+            if (isRegisterMode && !username) {
+                alert("Please provide a username for registration.");
+                return;
+            }
+
             try {
                 if (isRegisterMode) {
-                    await auth.createUserWithEmailAndPassword(email, password);
+                    // 1. Create user in Firebase Auth
+                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                    const user = userCredential.user;
+
+                    // 2. Set Firebase Auth display name
+                    await user.updateProfile({ displayName: username });
+
+                    // 3. Save user profile into Firestore database
+                    if (db) {
+                        await db.collection("users").doc(user.uid).set({
+                            uid: user.uid,
+                            email: email,
+                            username: username,
+                            admin: false,
+                            createdAt: new Date().toISOString()
+                        });
+                    }
+
                     alert("Account created and logged in successfully!");
                 } else {
                     await auth.signInWithEmailAndPassword(email, password);
@@ -342,6 +372,8 @@
                 console.error("Auth error:", error);
                 if (error.code === 'auth/user-disabled') {
                     alert("Account disabled or non-active. Please contact us at br26.admin@gmail.com");
+                } else {
+                    alert("Error: " + error.message);
                 }
             }
         });
