@@ -5,6 +5,7 @@ const GtfsRealtimeBindings = require('gtfs-realtime-bindings');
 const fs = require('fs');
 const csv = require('csv-parser');
 const admin = require('firebase-admin');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3333;
@@ -79,7 +80,12 @@ async function loadStaticRoutes() {
   });
 }
 
-app.use(express.static('public'));
+// Serve static files from root and handle index.html route explicitly
+app.use(express.static(path.join(__dirname)));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 function fetchBuffer(url) {
   return new Promise((resolve, reject) => {
