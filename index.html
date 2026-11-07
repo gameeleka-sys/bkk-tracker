@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BusRadar26</title>
+    <title>BKK Live Tracker</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -236,7 +236,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        const ADMIN_EMAIL = "br26.admin@gmail.com"; // <-- REPLACE WITH YOUR ADMIN EMAIL
+        const ADMIN_EMAIL = "br26.admin@gmail.com";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCYZ_dF-pSt-N1vzY0cCl9_-U6pdP9vMJo",
@@ -357,44 +357,6 @@
             }
         });
 
-        function getClientInfo() {
-            const ua = navigator.userAgent;
-            let browser = "Unknown Browser";
-            let os = "Unknown OS";
-
-            if (ua.indexOf("Win") !== -1) os = "Windows";
-            else if (ua.indexOf("Mac") !== -1) os = "macOS";
-            else if (ua.indexOf("iPhone") !== -1 || ua.indexOf("iPad") !== -1) os = "iOS";
-            else if (ua.indexOf("Android") !== -1) os = "Android";
-            else if (ua.indexOf("Linux") !== -1) os = "Linux";
-
-            if (ua.indexOf("Edg") !== -1) browser = "Microsoft Edge";
-            else if (ua.indexOf("Chrome") !== -1 && ua.indexOf("Edg") === -1) browser = "Google Chrome";
-            else if (ua.indexOf("Safari") !== -1 && ua.indexOf("Chrome") === -1) browser = "Apple Safari";
-            else if (ua.indexOf("Firefox") !== -1) browser = "Mozilla Firefox";
-            else if (ua.indexOf("Opera") !== -1 || ua.indexOf("OPR") !== -1) browser = "Opera";
-
-            return { os, browser };
-        }
-
-        async function logVisitor() {
-            if (!db) return;
-            if (currentUser && currentUser.email && currentUser.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-                return;
-            }
-            try {
-                const { os, browser } = getClientInfo();
-                await db.collection("visits").add({
-                    os: os,
-                    browser: browser,
-                    timestamp: new Date().toISOString()
-                });
-            } catch (error) {
-                console.error("Visitor logging error:", error);
-            }
-        }
-        logVisitor();
-
         window.logTrip = async function(plate, line) {
             if (!currentUser) {
                 alert("You must be logged in to log trips! Tap the 👤 profile button to sign in.");
@@ -477,36 +439,15 @@
             contentEl.innerHTML = 'Fetching secure system logs...';
 
             try {
-                const [tripsSnapshot, visitsSnapshot] = await Promise.all([
-                    db.collection("trips").get(),
-                    db.collection("visits").get()
-                ]);
+                const tripsSnapshot = await db.collection("trips").get();
 
                 let html = '';
-
-                html += `<h4 style="margin: 0 0 8px 0; color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 4px;">🌐 Visitor Telemetry (${visitsSnapshot.size})</h4>`;
-                if (visitsSnapshot.empty) {
-                    html += `<p style="color: #666; font-size: 12px; margin-bottom: 15px;">No visitor logs found.</p>`;
-                } else {
-                    html += `<div style="max-height: 150px; overflow-y: auto; margin-bottom: 15px;">`;
-                    visitsSnapshot.forEach((doc) => {
-                        const data = doc.data();
-                        const dateStr = data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A';
-                        html += `
-                            <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 6px 10px; margin-bottom: 6px; font-size: 12px;">
-                                <div><b>OS:</b> ${data.os || 'Unknown'} | <b>Browser:</b> ${data.browser || 'Unknown'}</div>
-                                <div style="font-size: 11px; color: #888; margin-top: 2px;">${dateStr}</div>
-                            </div>
-                        `;
-                    });
-                    html += `</div>`;
-                }
 
                 html += `<h4 style="margin: 0 0 8px 0; color: #198754; border-bottom: 2px solid #198754; padding-bottom: 4px;">🚌 All Logged Trips (${tripsSnapshot.size})</h4>`;
                 if (tripsSnapshot.empty) {
                     html += `<p style="color: #666; font-size: 12px;">No logged trips found.</p>`;
                 } else {
-                    html += `<div style="max-height: 150px; overflow-y: auto;">`;
+                    html += `<div style="max-height: 250px; overflow-y: auto;">`;
                     tripsSnapshot.forEach((doc) => {
                         const data = doc.data();
                         const dateStr = data.date ? new Date(data.date).toLocaleString() : 'N/A';
@@ -549,7 +490,7 @@
 
         const markers = {};
         const markerMeta = {};
-        const NORMAL_HIDE_ZOOM = 14;
+        const NORMAL_HIDE_ZOOM = 13;
         const FILTER_HIDE_ZOOM = 11;
         let currentFilterQuery = '';
         let filterMode = 0;
