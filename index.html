@@ -264,4 +264,276 @@
                     <button onclick="modifyUser('${u.uid}', ${!u.isAdmin}, null)" style="background: ${u.isAdmin ? '#ffc107' : '#0d6efd'}; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">
                         ${u.isAdmin ? 'Take Away Admin' : 'Promote to Admin'}
                     </button>
-                    <button onclick="modifyUser('${u.uid}', null, ${!u.disabled})" style="background: ${u.disabled ? '#198754' : '#dc3545'}; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font
+                    <button onclick="modifyUser('${u.uid}', null, ${!u.disabled})" style="background: ${u.disabled ? '#198754' : '#dc3545'}; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">
+                        ${u.disabled ? 'Activate Account' : 'Deactivate Account'}
+                    </button>
+                </div>
+                <div id="user-specific-logs">Loading logs...</div>
+            `;
+
+            try {
+                const snapshot = await db.collection("trips").where("userId", "==", u.uid).get();
+                const logsContainer = document.getElementById('user-specific-logs');
+                if (snapshot.empty) {
+                    logsContainer.innerHTML = '<p style="color: #666; font-size: 12px;">No logged trips for this user.</p>';
+                    return;
+                }
+                let html = '';
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    html += `
+                        <div style="background: white; border: 1px solid #ddd; padding: 6px; border-radius: 4px; margin-bottom: 4px; font-size: 12px;">
+                            Line: <b>${data.line}</b> | Plate: <b>${data.licensePlate}</b><br><span style="color: #888; font-size: 10px;">${new Date(data.date).toLocaleString()}</span>
+                        </div>
+                    `;
+                });
+                logsContainer.innerHTML = html;
+            } catch (err) {
+                document.getElementById('user-specific-logs').innerHTML = 'Error loading logs.';
+            }
+        }
+
+        window.modifyUser = async function(uid, makeAdmin, disabled) {
+            try {
+                const res = await fetch('/api/admin/modify-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ uid, makeAdmin, disabled })
+                });
+                if (!res.ok) throw new Error('Action failed');
+                alert('User updated successfully!');
+                loadAdminUsers();
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        };
+
+        document.getElementById('create-user-submit').onclick = async () => {
+            const email = document.getElementById('new-user-email').value.trim();
+            const password = document.getElementById('new-user-pass').value.trim();
+            const makeAdmin = document.getElementById('new-user-admin').checked;
+
+            if (!email || !password) {
+                alert('Please provide email and password.');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/admin/create-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, makeAdmin })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                alert('User created successfully!');
+                document.getElementById('new-user-email').value = '';
+                document.getElementById('new-user-pass').value = '';
+                document.getElementById('new-user-admin').checked = false;
+                loadAdminUsers();
+            } catch (err) {
+                alert('Creation failed: ' + err.message);
+            }
+        };
+
+        // Log Trips Modal Logic
+        document.getElementById('logged-trips-btn').onclick = async () => {
+            if (!currentUser) {
+                alert("Please log in to view your logged trips.");
+                document.getElementById('auth-modal').style.display = 'block';
+                return;
+            }
+            const modal = document.getElementById('logs-modal');
+            const contentEl = document.getElementById('logs-content');
+            modal.style.display = 'block';
+            contentEl.innerHTML = 'Fetching your trips...';
+
+            try {
+                const snapshot = await db.collection("trips").where("userId", "==", currentUser.uid).get();
+                if (snapshot.empty) {
+                    contentEl.innerHTML = '<p style="color: #666; font-size: 12px; text-align: center;">No logged trips found for your account.</p>';
+                    return;
+                }
+                let html = '<div style="max-height: 250px; overflow-y: auto;">';
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    html += `
+                        <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 6px 10px; margin-bottom: 6px; font-size: 12px;">
+                            <div><b>Line:</b> ${data.line || 'N/A'} | <b>Plate:</b> ${data.licensePlate || 'N/A'}</div>
+                            <div style="font-size: 11px; color: #888; margin-top: 2px;">${new Date(data.date).toLocaleString()}</div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                contentEl.innerHTML = html;
+            } catch (err) {
+                contentEl.innerHTML = '<p style="color: red; text-align: center;">Failed to load trips.</p>';
+            }
+        };
+        document.getElementById('close-logs-btn').onclick = () => document.getElementById('logs-modal').style.display = 'none';
+
+        // Map and Vehicle Fetching Logic
+        const map = L.map('map').setView([47.4979, 19.0402], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+        const markers = {};
+        const markerMeta = {};
+        const NORMAL_HIDE_ZOOM = 13;
+        const FILTER_HIDE_ZOOM = 11;
+        let currentFilterQuery = '';
+        let filterMode = 0;
+
+        const inputEl = document.getElementById('filter-input');
+        const modeBtn = document.getElementById('mode-btn');
+
+        inputEl.addEventListener('input', (e) => {
+            currentFilterQuery = e.target.value.trim().toLowerCase();
+            updateVisibilityForAllMarkers();
+        });
+
+        modeBtn.addEventListener('click', () => {
+            filterMode = (filterMode + 1) % 3;
+            if (filterMode === 0) {
+                modeBtn.textContent = '🔍 All';
+                inputEl.placeholder = "Filter line or plate...";
+            } else if (filterMode === 1) {
+                modeBtn.textContent = '🚌 Line Only';
+                inputEl.placeholder = "Filter line (exact)...";
+            } else if (filterMode === 2) {
+                modeBtn.textContent = '🚗 Plate Only';
+                inputEl.placeholder = "Filter plate...";
+            }
+            updateVisibilityForAllMarkers();
+        });
+
+        function formatRouteNumber(routeNum) {
+            if (!routeNum) return 'N/A';
+            const clean = String(routeNum).trim().toUpperCase();
+            if (clean === '0161') return '16A';
+            if (clean === '0085') return '8E';
+            return routeNum;
+        }
+
+        function getNormalizedVehicleType(v, formattedRoute) {
+            const rawType = String(v.vehicleType || '').toLowerCase();
+            const routeNum = String(formattedRoute || '').toUpperCase();
+            if (/^H[5-9]$/.test(routeNum) || routeNum.includes('HÉV') || routeNum.includes('HEV')) return 'suburban_rail';
+            if (rawType === 'tram') return 'tram';
+            if (rawType === 'trolley') return 'trolley';
+            if (rawType === 'train') return 'train';
+            if (rawType === 'suburban_rail') return 'suburban_rail';
+            return 'bus';
+        }
+
+        function shouldDisplayMarker(id) {
+            const currentZoom = map.getZoom();
+            const effectiveThreshold = currentFilterQuery ? FILTER_HIDE_ZOOM : NORMAL_HIDE_ZOOM;
+            if (currentZoom < effectiveThreshold) return false;
+            if (!currentFilterQuery) return true;
+
+            const meta = markerMeta[id];
+            if (!meta) return false;
+
+            if (filterMode === 1) return meta.routeNumber === currentFilterQuery;
+            if (filterMode === 2) return meta.licensePlate.includes(currentFilterQuery);
+            return meta.routeNumber === currentFilterQuery || meta.licensePlate.includes(currentFilterQuery);
+        }
+
+        function updateVisibilityForAllMarkers() {
+            for (let id in markers) {
+                const marker = markers[id];
+                if (shouldDisplayMarker(id)) {
+                    if (!map.hasLayer(marker)) marker.addTo(map);
+                } else {
+                    if (map.hasLayer(marker)) map.removeLayer(marker);
+                }
+            }
+        }
+
+        window.logTrip = async function(plate, line) {
+            if (!currentUser) {
+                alert("You must be logged in to log trips! Tap the 👤 profile button to sign in.");
+                document.getElementById('auth-modal').style.display = 'block';
+                return;
+            }
+            try {
+                await db.collection("trips").add({
+                    userId: currentUser.uid,
+                    userEmail: currentUser.email,
+                    licensePlate: plate || 'N/A',
+                    line: line || 'N/A',
+                    date: new Date().toISOString()
+                });
+                alert(`Trip logged successfully!\n\nLine: ${line}\nPlate: ${plate}`);
+            } catch (err) {
+                alert("Failed to log trip.");
+            }
+        };
+
+        async function fetchVehicles() {
+            try {
+                const response = await fetch('/api/buses');
+                const vehicles = await response.json();
+                const currentVehicleIds = new Set();
+
+                vehicles.forEach(v => {
+                    currentVehicleIds.add(v.id);
+                    let displayLabel = formatRouteNumber(v.routeNumber);
+                    const lat = v.latitude;
+                    const lon = v.longitude;
+                    const licensePlate = v.licensePlate || 'N/A';
+
+                    if (!lat || !lon) return;
+
+                    markerMeta[v.id] = {
+                        routeNumber: displayLabel.toLowerCase(),
+                        licensePlate: licensePlate.toLowerCase()
+                    };
+
+                    const vType = getNormalizedVehicleType(v, displayLabel);
+                    const isStopped = v.currentStatus === 'STOPPED_AT' || v.currentStatus === 0;
+                    const vehicleIcon = L.divIcon({
+                        className: '',
+                        html: `<div class="transit-badge badge-${vType} ${isStopped ? 'is-stopped' : ''}">${displayLabel}</div>`,
+                        iconSize: [38, 20],
+                        iconAnchor: [19, 10]
+                    });
+
+                    const popupContent = `
+                        <b>Line:</b> ${displayLabel}<br>
+                        <b>Type:</b> ${vType.toUpperCase().replace('_', ' ')}<br>
+                        <b>Destination:</b> ${v.destination || 'In Service'}<br>
+                        <b>Plate:</b> ${licensePlate}<br><br>
+                        <button onclick="logTrip('${licensePlate}', '${displayLabel}')" style="background-color: #007bff; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: 600; cursor: pointer; width: 100%;">Log trip</button>
+                    `;
+
+                    if (markers[v.id]) {
+                        markers[v.id].setLatLng([lat, lon]);
+                        markers[v.id].setIcon(vehicleIcon);
+                        markers[v.id].bindPopup(popupContent);
+                    } else {
+                        const marker = L.marker([lat, lon], { icon: vehicleIcon });
+                        marker.bindPopup(popupContent);
+                        markers[v.id] = marker;
+                    }
+                });
+
+                for (let id in markers) {
+                    if (!currentVehicleIds.has(id)) {
+                        map.removeLayer(markers[id]);
+                        delete markers[id];
+                        delete markerMeta[id];
+                    }
+                }
+                updateVisibilityForAllMarkers();
+            } catch (err) {
+                console.error('Error fetching vehicles:', err);
+            }
+        }
+
+        map.on('zoomend', updateVisibilityForAllMarkers);
+        fetchVehicles();
+        setInterval(fetchVehicles, 5000);
+    </script>
+</body>
+</html>
