@@ -58,6 +58,25 @@
             display: none; position: fixed; inset: 0; z-index: 3000; background: #f4f6f9;
             flex-direction: column; padding: 20px; box-sizing: border-box; overflow-y: auto;
         }
+
+        .transit-badge {
+            padding: 2px 7px; font-weight: 800; font-size: 11px; border-radius: 5px;
+            text-align: center; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4); white-space: nowrap;
+            display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+        }
+        .badge-bus { background-color: #007bff; color: #ffffff; border: 1.5px solid #0056b3; }
+        .badge-tram { background-color: #ffd700; color: #000000; border: 1.5px solid #d4ac0d; }
+        .badge-trolley { background-color: #dc3545; color: #ffffff; border: 1.5px solid #a71d2a; }
+        .badge-train { background-color: #002D62; color: #ffffff; border: 1.5px solid #001A3D; }
+        .badge-suburban_rail { background-color: #198754; color: #ffffff; border: 1.5px solid #146c43; }
+        .badge-na { background-color: #1a1a1a; color: #ffffff; border: 1.5px solid #444444; }
+
+        @keyframes flash-stop {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.92); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .is-stopped { animation: flash-stop 1.2s infinite ease-in-out; }
     </style>
 </head>
 <body>
@@ -66,7 +85,7 @@
         <div id="filter-row">
             <div id="filter-container">
                 <input type="text" id="filter-input" placeholder="Filter..." />
-                <button id="mode-btn">🔍 All</button>
+                <button id="mode-btn" title="Click to change filter mode">🔍 All</button>
             </div>
             <button id="profile-btn" title="Account / Login">👤</button>
         </div>
@@ -227,7 +246,6 @@
                         <div><b>${u.email}</b> ${u.isAdmin ? '👑' : ''} ${u.disabled ? '🚫 (Disabled)' : ''}</div>
                         <div style="font-size: 11px; color: #666;">UID: ${u.uid}</div>
                     `;
-                    // Clicking user loads their logs in Column 2 & prompts management actions
                     div.onclick = () => selectUserForAdmin(u);
                     listEl.appendChild(div);
                 });
@@ -246,80 +264,4 @@
                     <button onclick="modifyUser('${u.uid}', ${!u.isAdmin}, null)" style="background: ${u.isAdmin ? '#ffc107' : '#0d6efd'}; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">
                         ${u.isAdmin ? 'Take Away Admin' : 'Promote to Admin'}
                     </button>
-                    <button onclick="modifyUser('${u.uid}', null, ${!u.disabled})" style="background: ${u.disabled ? '#198754' : '#dc3545'}; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">
-                        ${u.disabled ? 'Activate Account' : 'Deactivate Account'}
-                    </button>
-                </div>
-                <div id="user-specific-logs">Loading logs...</div>
-            `;
-
-            try {
-                const snapshot = await db.collection("trips").where("userId", "==", u.uid).get();
-                const logsContainer = document.getElementById('user-specific-logs');
-                if (snapshot.empty) {
-                    logsContainer.innerHTML = '<p style="color: #666; font-size: 12px;">No logged trips for this user.</p>';
-                    return;
-                }
-                let html = '';
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    html += `
-                        <div style="background: white; border: 1px solid #ddd; padding: 6px; border-radius: 4px; margin-bottom: 4px; font-size: 12px;">
-                            Line: <b>${data.line}</b> | Plate: <b>${data.licensePlate}</b><br><span style="color: #888; font-size: 10px;">${new Date(data.date).toLocaleString()}</span>
-                        </div>
-                    `;
-                });
-                logsContainer.innerHTML = html;
-            } catch (err) {
-                document.getElementById('user-specific-logs').innerHTML = 'Error loading logs.';
-            }
-        }
-
-        window.modifyUser = async function(uid, makeAdmin, disabled) {
-            try {
-                const res = await fetch('/api/admin/modify-user', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ uid, makeAdmin, disabled })
-                });
-                if (!res.ok) throw new Error('Action failed');
-                alert('User updated successfully!');
-                loadAdminUsers();
-            } catch (err) {
-                alert('Error: ' + err.message);
-            }
-        };
-
-        document.getElementById('create-user-submit').onclick = async () => {
-            const email = document.getElementById('new-user-email').value.trim();
-            const password = document.getElementById('new-user-pass').value.trim();
-            const makeAdmin = document.getElementById('new-user-admin').checked;
-
-            if (!email || !password) {
-                alert('Please provide email and password.');
-                return;
-            }
-
-            try {
-                const res = await fetch('/api/admin/create-user', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password, makeAdmin })
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error);
-                alert('User created successfully!');
-                document.getElementById('new-user-email').value = '';
-                document.getElementById('new-user-pass').value = '';
-                document.getElementById('new-user-admin').checked = false;
-                loadAdminUsers();
-            } catch (err) {
-                alert('Creation failed: ' + err.message);
-            }
-        };
-
-        const map = L.map('map').setView([47.4979, 19.0402], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-    </script>
-</body>
-</html>
+                    <button onclick="modifyUser('${u.uid}', null, ${!u.disabled})" style="background: ${u.disabled ? '#198754' : '#dc3545'}; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font
