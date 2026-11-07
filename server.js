@@ -25,9 +25,7 @@ const routeDetailsMap = new Map();
 
 function getDisplayLine(routeNumber) {
   const line = String(routeNumber).trim();
-  if (line === '100E' || line.includes('100E')) {
-    return 'AIRPORT EXPRESS';
-  }
+  
   if (line === '0075' || line.includes('0075')) {
     return '7E';
   }
