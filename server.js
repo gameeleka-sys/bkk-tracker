@@ -7,44 +7,34 @@ const csv = require('csv-parser');
 const admin = require('firebase-admin');
 const path = require('path');
 
+// Initialize Firebase Admin SDK for secure server-side checks
+admin.initializeApp({
+  credential: admin.credential.applicationDefault()
+});
+const db = admin.firestore();
+
 const app = express();
 const PORT = process.env.PORT || 3333;
 const BKK_API_KEY = '204dc94e-0379-4403-af32-888232066de5';
 
-// Enable CORS and JSON body parsing
+// Enable CORS for all origins
 app.use(cors());
 app.use(express.json());
 
-// Initialize Firebase Admin
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
-    projectId: 'budapestradar26'
-  });
-}
-
 const routeDetailsMap = new Map();
 
-// Helper function to customize line name display
 function getDisplayLine(routeNumber) {
   const line = String(routeNumber).trim();
-  
-  if (line === '100E' || line.includes('100E')) {
-    return 'AIRPORT EXPRESS';
-  }
   
   if (line === '0075' || line.includes('0075')) {
     return '7E';
   }
-  
   if (!line || line === 'Transit') {
     return 'Transit'; 
   }
-
   return line;
 }
 
-// Helper function to guess vehicle model based on plate prefix
 function getVehicleModel(licensePlate) {
   if (!licensePlate || licensePlate === 'N/A') return 'Unknown Model';
   const plate = licensePlate.toUpperCase();
@@ -80,12 +70,8 @@ async function loadStaticRoutes() {
   });
 }
 
-// Serve static files from root and handle index.html route explicitly
-app.use(express.static(path.join(__dirname)));
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
+// Serve static files from the root directory
+app.use(express.static(__dirname));
 
 function fetchBuffer(url) {
   return new Promise((resolve, reject) => {
@@ -100,55 +86,35 @@ function fetchBuffer(url) {
   });
 }
 
-// Admin API: List all users
-app.get('/api/admin/users', async (req, res) => {
-  try {
-    const listUsersResult = await admin.auth().listUsers(1000);
-    const users = listUsersResult.users.map(userRecord => ({
-      uid: userRecord.uid,
-      email: userRecord.email,
-      disabled: userRecord.disabled,
-      isAdmin: !!userRecord.customClaims?.admin
-    }));
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// --- SECURE ADMIN PROMOTION ENDPOINT ---
+app.post('/api/set-admin', async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'Unauthorized: No token provided' });
+        }
 
-// Admin API: Create a user
-app.post('/api/admin/create-user', async (req, res) => {
-  try {
-    const { email, password, makeAdmin } = req.body;
-    const userRecord = await admin.auth().createUser({ email, password });
+        const token = authHeader.split('Bearer ')[1];
+        const decodedToken = await admin.auth().verifyIdToken(token);
 
-    if (makeAdmin) {
-      await admin.auth().setCustomUserClaims(userRecord.uid, { admin: true });
+        const requesterDoc = await db.collection('users').doc(decodedToken.uid).get();
+        if (!requesterDoc.exists || !requesterDoc.data().admin) {
+            return res.status(403).json({ error: 'Forbidden: Only admins can perform this action' });
+        }
+
+        const { targetUid, makeAdmin } = req.body;
+        if (!targetUid || typeof makeAdmin !== 'boolean') {
+            return res.status(400).json({ error: 'Invalid request parameters' });
+        }
+
+        await admin.auth().setCustomUserClaims(targetUid, { admin: makeAdmin });
+        await db.collection('users').doc(targetUid).update({ admin: makeAdmin });
+
+        res.json({ success: true, message: 'User role updated successfully.' });
+    } catch (error) {
+        console.error('Error updating role:', error);
+        res.status(500).json({ error: error.message });
     }
-
-    res.json({ success: true, uid: userRecord.uid });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Admin API: Modify user role or status
-app.post('/api/admin/modify-user', async (req, res) => {
-  try {
-    const { uid, makeAdmin, disabled } = req.body;
-    
-    if (typeof makeAdmin === 'boolean') {
-      await admin.auth().setCustomUserClaims(uid, { admin: makeAdmin });
-    }
-    
-    if (typeof disabled === 'boolean') {
-      await admin.auth().updateUser(uid, { disabled: disabled });
-    }
-
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
 });
 
 app.get('/api/buses', async (req, res) => {
@@ -206,6 +172,11 @@ app.get('/api/buses', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// Fallback route for index.html
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 loadStaticRoutes().then(() => {
